@@ -1,0 +1,5 @@
+# All paths are relative to `root`, which defaults to the launch directory.
+root: .
+data_dir: data
+results_dir: results
+cache_dir: results/cache

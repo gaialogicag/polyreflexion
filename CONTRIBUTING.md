@@ -1,0 +1,73 @@
+# Contributing
+
+## Setup
+
+```bash
+python3.11 -m venv .venv          # 3.11 or newer
+source .venv/bin/activate
+pip install -e ".[dev,viz,gpqa]"
+cp .env.example .env              # put your OPENAI_API_KEY here
+```
+
+Check the install with the offline path, which needs no key and makes no
+network calls:
+
+```bash
+polyrx-bench experiment=smoke
+```
+
+## Design principles
+
+These are enforced in review, and mirrored in `.cursor/rules/` for Cursor users.
+
+1. **Configuration lives in `conf/`, not in code.** No `os.environ.get` outside
+   `polyreflexion/config.py`. The one exception is reading an API key by the
+   variable name the config gives.
+2. **Derive, do not tabulate.** Anything computable from a condition's backend,
+   depth and meta budget is a property on `Condition`, not another dictionary.
+3. **The meta layer selects; the engine produces.** Nothing in `meta/` writes
+   reasoning text. If a change makes a judge generate an answer, it belongs in
+   the engine instead.
+4. **Recursion where it fits**, with explicit base cases.
+5. **Parallel by default** for independent model calls and subtrees.
+6. **Comment the why.** Assume a reader who knows Python but not this project.
+7. **Exercise a change offline before proposing it.** `experiment=smoke` runs
+   the whole pipeline on stub clients, so a broken call site shows up without
+   spending a token.
+
+## Before opening a pull request
+
+```bash
+ruff check src && ruff format --check src
+mypy
+polyrx-bench experiment=smoke
+```
+
+## Changing a prompt
+
+Prompt edits invalidate cached summaries. Bump `experiment.cache_namespace`
+when you change a template, otherwise the next run silently reuses summaries
+built by the old prompt and the number you publish corresponds to no version of
+the code.
+
+## Adding a condition
+
+Add one `Condition(...)` in `polyreflexion/conditions.py`. Cache key, prior
+budget, summary behaviour and report ordering follow from it. Do not add a
+lookup table.
+
+## Changing a dataset revision
+
+```bash
+polyrx-manifest pin --dataset gpqa
+polyrx-manifest verify
+```
+
+Commit the updated `data/MANIFEST.json` in the same pull request as the config
+change, and say in the description which published numbers it invalidates.
+
+## Commits
+
+Conventional Commits: `feat|fix|docs|style|refactor|test|chore(scope): description`,
+imperative mood, lowercase, no trailing period, subject under 72 characters.
+Branches are `<type>/<short-description>`. Never commit to `main` directly.

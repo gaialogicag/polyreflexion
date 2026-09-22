@@ -1,0 +1,27 @@
+# Root configuration. Every entry point composes from here.
+#
+# Override anything on the command line:
+#   polyrx-bench experiment.num_items=50 backends.nano.model=gpt-4o-mini
+# Sweep with -m (Hydra multirun), which replaces the old incremental scripts:
+#   polyrx-bench -m experiment=gpqa 'experiment.conditions=[nano_meta_c1],[nano_meta_c2]'
+
+defaults:
+  - experiment: opentom
+  - backends: openai
+  - dataset: opentom
+  - engine: default
+  - meta: default
+  - paths: default
+  - _self_
+
+hydra:
+  job:
+    # Keep the process in the directory the user launched from. Relative paths
+    # in `paths` then mean what the user expects, and results do not scatter
+    # into per-run subdirectories that the report tooling cannot find.
+    chdir: false
+  run:
+    dir: ${paths.results_dir}/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.results_dir}/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polyreflexion"
+version = "0.1.0"
+description = "Recursive Sierpinski reflexion with a polycontextural meta layer, and the OpenToM / GPQA benchmarks that measure it"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+# match/case and PEP 604 unions in the source require 3.11.
+requires-python = ">=3.11"
+authors = [{ name = "GaiaLogic AG" }]
+keywords = [
+    "large-language-models",
+    "reasoning",
+    "self-reflection",
+    "theory-of-mind",
+    "benchmark",
+    "gpqa",
+    "opentom",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "openai>=1.30,<2",
+    "hydra-core>=1.3,<2",
+    "omegaconf>=2.3,<3",
+    "huggingface_hub>=0.23,<1",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+# Chart rendering and Sierpinski topology PNGs. Not needed to produce numbers,
+# so a headless benchmark run does not pull a plotting stack.
+viz = ["matplotlib>=3.8"]
+# GPQA domain labels are recovered from a parquet metadata file.
+gpqa = ["pyarrow>=14"]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+all = ["polyreflexion[viz,gpqa]"]
+
+[project.urls]
+Homepage = "https://github.com/gaialogicag/polyreflexion"
+Repository = "https://github.com/gaialogicag/polyreflexion"
+Issues = "https://github.com/gaialogicag/polyreflexion/issues"
+
+[project.scripts]
+# The one entry point that produces publishable numbers.
+polyrx-bench = "polyreflexion.cli.bench:main"
+# Interactive: baseline reflexion beside meta reflexion for a single question.
+polyrx-ask = "polyreflexion.cli.ask:main"
+# One meta-guided reflexion run with trace and topology renderings.
+polyrx-reflect = "polyreflexion.cli.reflect:main"
+# Pin dataset revisions and verify downloaded bytes.
+polyrx-manifest = "polyreflexion.cli.manifest:main"
+# Write judge traces beside summaries cached before traces were recorded.
+polyrx-backfill = "polyreflexion.cli.backfill:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polyreflexion"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# Prompt templates and the config tree ship with the wheel; without them an
+# installed package cannot run anything.
+"src/polyreflexion/prompts" = "polyreflexion/prompts"
+"src/polyreflexion/conf" = "polyreflexion/conf"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/polyreflexion",
+    "README.md",
+    "LICENSE",
+    "CITATION.cff",
+]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "RUF",
+]
+ignore = [
+    "E501",    # line length is enforced by the formatter, not the linter
+    "B008",    # function call in default argument: used deliberately for factories
+    "RUF001",  # em dashes and arrows in prose are intentional
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["polyreflexion"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["polyreflexion"]
+mypy_path = "src"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+# The meta layer is fully annotated; the report writers are not yet.
+disallow_untyped_defs = false

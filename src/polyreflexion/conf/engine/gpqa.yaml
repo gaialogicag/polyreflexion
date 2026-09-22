@@ -1,0 +1,4 @@
+# GPQA reflexion builds a scientific reasoning summary and never emits a letter;
+# the question-answering pass picks A-D from that summary.
+prompts: reflexion_gpqa.json
+max_workers: 8

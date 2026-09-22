@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "polyreflexion: recursive Sierpinski reflexion with a polycontextural meta layer"
+abstract: >-
+  A recursive text-reflexion engine over a Sierpinski triangle of three
+  perspectives, steered by a polycontextural meta layer that judges each cycle
+  from subjective, objective and dialectical contexts and selects the next
+  recursion move. Ships the OpenToM and GPQA Diamond evaluation suites used to
+  measure it.
+type: software
+license: MIT
+repository-code: "https://github.com/gaialogicag/polyreflexion"
+version: 0.1.0
+date-released: "2026-09-22"
+keywords:
+  - large language models
+  - self-reflection
+  - recursive reasoning
+  - theory of mind
+  - polycontexturality
+authors:
+  - name: "GaiaLogic GmBH"
+    city: Munich
+    country: DE

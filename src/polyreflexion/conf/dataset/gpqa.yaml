@@ -1,0 +1,23 @@
+name: gpqa
+# The official release is gated: accept the terms on the Hub and set HF_TOKEN.
+# Without it the fetch falls through to the public mirror, which lacks domain
+# labels -- those are then recovered from the `extras` parquet.
+primary:
+  repo_id: Idavidrein/gpqa
+  filename: gpqa_diamond.csv
+  revision: main
+  repo_type: dataset
+  gated: true
+fallbacks:
+  - repo_id: aradhye/gpqa_diamond
+    filename: gpqa_diamond.csv
+    revision: main
+    repo_type: dataset
+    gated: false
+extras:
+  - repo_id: nichenshun/gpqa_diamond
+    filename: data/train-00000-of-00001.parquet
+    revision: main
+    repo_type: dataset
+    gated: false
+verify_checksums: true

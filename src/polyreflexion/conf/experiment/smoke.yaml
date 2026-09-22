@@ -1,0 +1,23 @@
+# @package experiment
+# Offline smoke test: no network, no API key, deterministic stub responses.
+# This is what continuous integration runs.
+
+defaults:
+  - override /dataset: opentom
+  - override /meta: default
+  - override /engine: default
+
+suite: opentom
+num_items: 2
+seed: 42
+max_workers: 2
+conditions:
+  - nano_direct
+  - nano_reflexion
+  - nano_meta_c1
+use_stub: true
+cache_namespace: smoke
+detailed: false
+merge_from: null
+extend_from: null
+drop_conditions: []

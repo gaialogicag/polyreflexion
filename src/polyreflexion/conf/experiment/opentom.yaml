@@ -1,0 +1,32 @@
+# @package experiment
+# OpenToM Theory-of-Mind pilot.
+#
+# Published pilot: 20 stories, cache namespace ot_opentom_v1, meta profile
+# opentom. The nano_meta_c2 advantage over nano_reflexion there is 0.528 vs
+# 0.524 -- inside sampling noise at n=20. Treat it as "no measured harm",
+# not as a win.
+
+defaults:
+  - override /dataset: opentom
+  - override /meta: opentom
+  - override /engine: default
+
+suite: opentom
+num_items: 10
+seed: 42
+max_workers: 4
+conditions:
+  - nano_direct
+  - nano_reflexion
+  - nano_reflexion_d2
+  - nano_reflexion_d3
+  - nano_meta_c1
+  - nano_meta_c2
+  - nano_meta_c3
+  - nano_meta_c4
+use_stub: false
+cache_namespace: ""
+detailed: false
+merge_from: null
+extend_from: null
+drop_conditions: []

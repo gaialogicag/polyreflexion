@@ -1,0 +1,4 @@
+# Packaged template file name, or an absolute path to your own.
+prompts: reflexion.json
+# Independent subtree calls run concurrently; raise with a higher rate limit.
+max_workers: 8

@@ -1,0 +1,24 @@
+# Fully local: every role served by Ollama. Useful for offline replication and
+# for checking that a result is not an artifact of one provider.
+#
+# Requires: ollama serve; ollama pull phi4-mini-reasoning; ollama pull qwen2.5:7b
+
+defaults:
+  - openai
+  - _self_
+
+nano:
+  # Points at an OpenAI-compatible gateway in front of Ollama.
+  model: qwen2.5:7b
+  base_url: http://127.0.0.1:11434/v1
+  api_key_env: OLLAMA_API_KEY
+
+judge:
+  model: qwen2.5:7b
+  base_url: http://127.0.0.1:11434/v1
+  api_key_env: OLLAMA_API_KEY
+
+meta_judge:
+  model: qwen2.5:7b
+  base_url: http://127.0.0.1:11434/v1
+  api_key_env: OLLAMA_API_KEY

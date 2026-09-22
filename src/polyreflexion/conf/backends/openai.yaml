@@ -1,0 +1,41 @@
+# The four roles the code asks for by name. Only the models change here --
+# never a call site.
+#
+# Keys are read from the environment by name (`api_key_env`), so this file is
+# safe to commit and safe to copy into a results directory.
+
+nano:
+  model: gpt-5.4-nano
+  api_key_env: OPENAI_API_KEY
+  base_url: null
+  temperature: 0.0
+  system_prompt: You are an expert in modeling others' mental states.
+
+judge:
+  model: gpt-5-mini
+  api_key_env: OPENAI_API_KEY
+  base_url: null
+  temperature: 0.0
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  # Deliberately a different model from `judge` so meta evaluation stays
+  # independent of benchmark scoring.
+  model: gpt-4o
+  api_key_env: OPENAI_API_KEY
+  base_url: null
+  temperature: 0.0
+  system_prompt: You are an impartial evaluator of reasoning quality.
+
+phi:
+  model: phi4-mini-reasoning
+  host: http://127.0.0.1:11434
+  num_ctx: 8192
+  # Short generations on purpose: long chains on this model collapse into
+  # token salad. Clear the phi summary cache after changing this.
+  num_predict: 512
+  timeout_s: 1800
+  retries: 3
+  temperature: 0.2
+  think: false
+  strip_reasoning: true

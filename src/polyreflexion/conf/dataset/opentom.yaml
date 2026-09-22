@@ -1,0 +1,13 @@
+name: opentom
+primary:
+  repo_id: SeacowX/OpenToM
+  filename: opentom.json
+  # Pin a Hub commit sha here. `polyrx-manifest pin` resolves the current one
+  # and records its checksum in data/MANIFEST.json. Leaving this at `main`
+  # makes the run unreproducible and the runner says so.
+  revision: main
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

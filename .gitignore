@@ -1,0 +1,27 @@
+# Datasets are downloaded, never vendored. GPQA is gated and license-restricted.
+# data/MANIFEST.json is the exception: it records what was downloaded.
+data/*
+!data/MANIFEST.json
+
+# Regenerable: summaries, judge traces, Hydra job directories, logs.
+results/cache/
+results/hydra/
+results/*.log
+
+# Published runs, reports and charts under results/ ARE tracked -- they are the
+# evidence behind the numbers in the README.
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/

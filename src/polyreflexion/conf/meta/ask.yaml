@@ -1,0 +1,10 @@
+# Interactive mode: produce the best single reply, not a survey of views.
+profile: ask
+max_cycles: 3
+engine_depth: 1
+reset_depth_bonus: 1
+# Cycle 0 only: read a fully positive verdict as "expand once" rather than
+# "converged", so the loop does not stop before it has done anything.
+reinterpret_full_positive_on_cycle0: true
+drift_check_enabled: true
+max_consecutive_drifts: 2

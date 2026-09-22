@@ -1,0 +1,15 @@
+{
+  "boundaries": {
+    "objectivity_subjectivity": "Given this graduate-level science multiple-choice problem:\n{input}\n\nIn one or two plain-English sentences, where is the boundary between established facts / definitions and uncertain inference or modeling assumptions? Do not pick an answer letter yet.",
+    "objectivity_conceptuality": "Given this graduate-level science multiple-choice problem:\n{input}\n\nIn one or two plain-English sentences, where is the boundary between concrete quantities / mechanisms and the abstract principle or law that organizes them? Do not pick an answer letter yet.",
+    "conceptuality_subjectivity": "Given this graduate-level science multiple-choice problem:\n{input}\n\nIn one or two plain-English sentences, where is the boundary between the governing concept and the heuristic shortcuts or distractors that could mislead a solver? Do not pick an answer letter yet."
+  },
+  "perspectives": {
+    "O": "Given this graduate-level science multiple-choice problem:\n{input}\n\nRegion context:\n{context}\n\nFrom an objective perspective, list the key facts, quantities, constraints, and definitions that must hold (2-4 sentences). Do not commit to a final choice letter yet.",
+    "S": "Given this graduate-level science multiple-choice problem:\n{input}\n\nRegion context:\n{context}\n\nFrom a solver's subjective perspective, note likely traps, tempting distractors, and where intuition may conflict with the correct mechanism (2-4 sentences). Do not commit to a final choice letter yet.",
+    "B": "Given this graduate-level science multiple-choice problem:\n{input}\n\nRegion context:\n{context}\n\nFrom a conceptual perspective, name the governing principle, law, or mechanism and how it structures the solution (2-4 sentences). Do not commit to a final choice letter yet."
+  },
+  "summary": "Original problem:\n{input}\n\nOutermost corner perspectives from a recursive reflexion analysis:\n\nObjectivity (O):\n{corner_o}\n\nSubjectivity (S):\n{corner_s}\n\nConceptuality (B):\n{corner_b}\n\nWrite one concise plain-English integrated scientific reasoning summary for solving this problem. Cover the governing principle, critical constraints, and how distractors fail. Do NOT state a final answer letter (A/B/C/D).",
+  "gpqa_qa": "You are answering a graduate-level science multiple-choice question (GPQA).\n\nReasoning context (may be the raw problem or an integrated analysis):\n{context}\n\nQuestion / task: Choose the correct option for the problem above.\n{question}\n\nAllowed answers (choose exactly one letter): {label_space}\n\nRules:\n- Reply with ONLY one letter from the allowed answers.\n- Prefer the form: \\\\boxed{{LETTER}}\n- No explanation, no analysis, no extra words.",
+  "gpqa_judge": "You are evaluating a GPQA multiple-choice answer.\n\nGold answer: {gold}\nModel answer: {prediction}\nAllowed answers: {label_space}\n\nDecide whether the model answer matches the gold letter (ignore surrounding text if the letter is clear).\n\nReply with JSON only:\n{{\"correct\": true or false, \"normalized_answer\": \"A or B or C or D or UNKNOWN\"}}"
+}
