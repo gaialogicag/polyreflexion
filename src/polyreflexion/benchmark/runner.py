@@ -273,6 +273,9 @@ def _build_summaries(
                             f"  [{summary_key}] story {i}/{len(stories)}: "
                             f"continuing from {prior_key}"
                         )
+                # `is_meta` is exactly `meta_cycles is not None`; restate it so
+                # the type checker can see the budget is a real number here.
+                assert meta_cycles is not None
                 summary, meta_result = _run_meta_summary(
                     client,
                     prompts,

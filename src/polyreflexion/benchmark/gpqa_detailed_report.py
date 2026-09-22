@@ -172,8 +172,11 @@ def _render_summary_length_section(
     reflexion_key: str = REFLEXION_SUMMARY_KEY,
 ) -> list[str]:
     keys = [reflexion_key, *META_SUMMARY_KEYS]
-    stats = [summary_length_stats(summaries, key) for key in keys]
-    stats = [s for s in stats if s is not None]
+    # Bind the filtered list to a new name: reassigning `stats` would keep its
+    # original Optional element type and every later attribute access is then
+    # only accidentally safe.
+    measured = [summary_length_stats(summaries, key) for key in keys]
+    stats = [s for s in measured if s is not None]
     if not stats:
         return ["No question summaries available in this run.", ""]
     base = next((s for s in stats if s.key == reflexion_key), stats[0])

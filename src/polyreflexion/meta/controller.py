@@ -28,6 +28,7 @@ from polyreflexion.meta.datatypes import (
     MetaCycle,
     MetaResult,
     Observation,
+    PolyEvaluation,
     summary_hash,
 )
 from polyreflexion.meta.geometry import GeometryMapper
@@ -103,7 +104,7 @@ class MetaController:
                 break
 
             # 2. Judge every candidate; select, never edit.
-            judged: list[tuple[str, ReflexionResult, object]] = []
+            judged: list[tuple[str, ReflexionResult, PolyEvaluation]] = []
             for candidate_input, result in candidates:
                 observation = Observation(
                     input_text=text,
@@ -302,7 +303,7 @@ class MetaController:
                 termination = f"engine_failure: {exc}"
                 break
 
-            judged: list[tuple[str, ReflexionResult, object]] = []
+            judged: list[tuple[str, ReflexionResult, PolyEvaluation]] = []
             for candidate_input, result in candidates:
                 observation = Observation(
                     input_text=text,

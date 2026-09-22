@@ -131,9 +131,10 @@ class DatasetFetcher:
 
     def _verify(self, spec: DatasetFile, path: Path) -> None:
         digest = file_sha256(path)
-        expected = spec.sha256 or (
-            self.manifest.expected(spec).sha256 if self.manifest.expected(spec) else None
-        )
+        # An explicit sha256 on the spec wins; otherwise fall back to whatever
+        # the manifest recorded for this file.
+        recorded = self.manifest.expected(spec)
+        expected = spec.sha256 or (recorded.sha256 if recorded is not None else None)
         if expected and digest != expected:
             message = (
                 f"{spec.repo_id}/{spec.filename} does not match the recorded checksum.\n"

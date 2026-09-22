@@ -39,6 +39,7 @@ from polyreflexion.meta.factory import build_meta_controller
 from polyreflexion.meta.judges import StubMetaClient
 from polyreflexion.meta.trace import MetaTrace
 from polyreflexion.meta.viz import render_topology
+from polyreflexion.models.base import LLMClient
 from polyreflexion.models.registry import get_client, set_active_backends
 
 
@@ -134,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
     depth = args.depth if args.depth is not None else cfg.meta.engine_depth
     output = args.output or (cfg.paths.resolved("results_dir") / "meta")
 
+    engine_client: LLMClient
+    judge_client: LLMClient
     if args.stub:
         engine_client = StubLLMClient()
         judge_client = StubMetaClient(triples=[("A", "F", "R"), ("A", "W", "W")])

@@ -66,7 +66,7 @@ class GPQAJudge:
             }
 
         # Ambiguous free text: optional LLM judge, then string fallback.
-        if self._prompts is not None and getattr(self._prompts, "_gpqa_judge", ""):
+        if self._prompts is not None and getattr(self._prompts, "_gpqa_judge", None):
             try:
                 prompt = self._prompts.gpqa_judge(
                     gold=gold,

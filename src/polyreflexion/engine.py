@@ -355,7 +355,10 @@ class ReflexionEngine:
         boundaries = self._find_boundaries(text, region)
         children = self._parallel_tree(
             [
-                lambda p=p: self._reflexion(
+                # `p=p` binds the loop variable at definition time, so each
+                # lambda captures its own perspective rather than the last one.
+                # mypy cannot infer a lambda with a bound default here.
+                lambda p=p: self._reflexion(  # type: ignore[misc]
                     text,
                     region.corner(p, boundaries),
                     depth + 1,
