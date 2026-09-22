@@ -28,14 +28,10 @@ from polyreflexion.benchmark.runner import (
     unique_stamp,
     uses_summary_condition,
 )
-from polyreflexion.config import PathsConfig
+from polyreflexion.config import PathsConfig, PromptsConfig
 from polyreflexion.engine import PromptRegistry
 from polyreflexion.models.base import LLMClient
 from polyreflexion.provenance import Provenance
-from polyreflexion.resources import prompt_path
-
-#: Engine + question-answering templates tuned for GPQA.
-GPQA_PROMPTS_PATH = prompt_path("reflexion_gpqa.json")
 
 
 @dataclass
@@ -51,6 +47,8 @@ class GPQABenchmarkConfig:
     cache_namespace: str = ""
     # Default GPQA meta profile (scientific reasoning judges / boundaries).
     meta_prompt_profile: str = "gpqa"
+    # Resolved templates, composed by Hydra from conf/prompts/.
+    prompts: PromptsConfig = field(default_factory=PromptsConfig)
     exclude_question_ids: frozenset[str] = frozenset()
     # When set, evaluate exactly these IDs (e.g. reuse items from a merge-from run).
     fixed_question_ids: frozenset[str] = frozenset()
@@ -83,6 +81,7 @@ def _to_shared_config(config: GPQABenchmarkConfig) -> BenchmarkConfig:
         cache_namespace=config.cache_namespace,
         meta_prompt_profile=config.meta_prompt_profile,
         paths=config.paths,
+        prompts=config.prompts,
     )
 
 
@@ -105,7 +104,7 @@ def _answer_question(
 def run_benchmark(config: GPQABenchmarkConfig) -> GPQABenchmarkRun:
     """Execute the GPQA Diamond benchmark."""
     started = datetime.now(UTC).isoformat()
-    prompts = PromptRegistry(GPQA_PROMPTS_PATH)
+    prompts = PromptRegistry(config.prompts.reflexion)
     all_items = load_items(shuffle_seed=config.seed)
     if config.fixed_question_ids:
         by_id = {item.question_id: item for item in all_items}
@@ -271,7 +270,7 @@ def merge_runs(base: GPQABenchmarkRun, extra: GPQABenchmarkRun) -> GPQABenchmark
 
 
 #: Config fields describing this process rather than this experiment.
-_RUNTIME_ONLY_FIELDS = ("exclude_question_ids", "fixed_question_ids")
+_RUNTIME_ONLY_FIELDS = ("exclude_question_ids", "fixed_question_ids", "prompts")
 
 
 def _config_to_dict(config: GPQABenchmarkConfig) -> dict:

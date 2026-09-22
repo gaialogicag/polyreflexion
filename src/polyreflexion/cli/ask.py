@@ -32,11 +32,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from polyreflexion.cli.compose import load_config
-from polyreflexion.engine import ReflexionEngine, StubLLMClient
-from polyreflexion.meta.ask_prompts import build_ask_engine_prompts, build_ask_meta_prompts
+from polyreflexion.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyreflexion.meta.datatypes import MetaConfig, MetaResult
 from polyreflexion.meta.factory import build_meta_controller
 from polyreflexion.meta.judges import StubMetaClient
+from polyreflexion.meta.prompts import MetaPromptRegistry
 from polyreflexion.meta.trace import MetaTrace
 from polyreflexion.meta.viz import render_topology
 from polyreflexion.models.base import LLMClient
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # The ask profile uses answer-oriented templates; override it if you want
     # the benchmark-style summary prompts instead.
-    cfg = load_config(["meta=ask", *args.overrides])
+    cfg = load_config(["meta=ask", "prompts/reflexion=ask", "prompts/meta=ask", *args.overrides])
     set_active_backends(cfg.backends)
     max_cycles = args.max_cycles if args.max_cycles is not None else cfg.meta.max_cycles
     workers = args.workers if args.workers is not None else cfg.engine.max_workers
@@ -144,10 +144,10 @@ def main(argv: list[str] | None = None) -> int:
         engine_client = get_client("nano")  # reflexion + meta cycles
         judge_client = get_client("meta_judge")  # polycontextural judges
 
-    # Answer-oriented templates: best reply to the question, not a survey of views.
-    # (OpenToM keeps the story-summary prompts in prompts.json.)
-    engine_prompts = build_ask_engine_prompts()
-    meta_prompts = build_ask_meta_prompts()
+    # The ask sets synthesize one best reply rather than surveying the three
+    # perspectives; override prompts/reflexion or prompts/meta to change that.
+    engine_prompts = PromptRegistry(cfg.prompts.reflexion)
+    meta_prompts = MetaPromptRegistry(cfg.prompts.meta)
 
     def engine_factory(depth: int) -> ReflexionEngine:
         return ReflexionEngine(

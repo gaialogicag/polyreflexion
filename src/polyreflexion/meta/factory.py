@@ -25,7 +25,7 @@ def build_meta_controller(
     *,
     boundary_client=None,
     config: MetaConfig | None = None,
-    meta_prompts: MetaPromptRegistry | None = None,
+    meta_prompts: MetaPromptRegistry,
 ) -> MetaController:
     """Create a ``MetaController`` with the standard meta-layer stack."""
     boundary = boundary_client if boundary_client is not None else judge_client

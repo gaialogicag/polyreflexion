@@ -70,9 +70,9 @@ polyrx-backfill = "polyreflexion.cli.backfill:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/polyreflexion"]
 
-# Prompt templates sit inside the package and are picked up by `packages`
-# above. The Hydra config tree deliberately does not ship: it lives at the
-# repository root, where a user can read and edit it.
+# Neither the config tree nor the prompt templates ship in the wheel: both are
+# configuration, and both live at the repository root where they can be read
+# and edited. The package is therefore checkout-only by design.
 
 [tool.hatch.build.targets.sdist]
 include = [

@@ -1,0 +1,92 @@
+# Engine templates for OpenToM: the reflexion tree builds an integrated
+# story summary, and the question-answering pass reads that summary.
+#
+# `{name}` placeholders are str.format fields. A literal brace is `{{`.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given the story text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between objectivity and subjectivity in this story? Do not use math, codes, IDs, or puzzle formatting.
+  objectivity_conceptuality: |-
+    Given the story text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between objectivity and conceptuality in this story? Do not use math, codes, IDs, or puzzle formatting.
+  conceptuality_subjectivity: |-
+    Given the story text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between conceptuality and subjectivity in this story? Do not use math, codes, IDs, or puzzle formatting.
+perspectives:
+  O: |-
+    Given the story text:
+    {input}
+
+    Region context:
+    {context}
+
+    Rewrite the story from an objective perspective in plain English (2-4 sentences). Keep character names and object locations. Do not use math, codes, IDs, or puzzle formatting.
+  S: |-
+    Given the story text:
+    {input}
+
+    Region context:
+    {context}
+
+    Rewrite the story from a subjective perspective in plain English (2-4 sentences). Keep character names, feelings, and beliefs. Do not use math, codes, IDs, or puzzle formatting.
+  B: |-
+    Given the story text:
+    {input}
+
+    Region context:
+    {context}
+
+    Rewrite the story from a conceptual perspective in plain English (2-4 sentences). Keep the core events and mental-state structure. Do not use math, codes, IDs, or puzzle formatting.
+summary: |-
+  Original story:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated summary of the story events and the characters' beliefs. Preserve names, places, and who knows what. Do not use math, codes, segment IDs, or puzzle formatting.
+opentom_qa: |-
+  You are an expert in modeling others' mental states.
+
+  Read the following context and answer the question.
+
+  Context:
+  {context}
+
+  Question: {question}
+
+  Allowed answers (choose exactly one): {label_space}
+
+  Rules:
+  - Reply with ONLY one allowed label.
+  - Prefer the form: \\boxed{{LABEL}} where LABEL is exactly one allowed answer.
+  - No explanation, no analysis, no extra words.
+opentom_judge: |-
+  You are evaluating a Theory-of-Mind benchmark answer.
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold answer in meaning (allow minor wording differences).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "the model answer mapped to an allowed label or UNKNOWN"}}

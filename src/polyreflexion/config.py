@@ -152,11 +152,60 @@ class PathsConfig:
 
 
 @dataclass
+class ReflexionPrompts:
+    """Templates the reflexion engine formats.
+
+    ``{name}`` placeholders are :meth:`str.format` fields; a literal brace is
+    written ``{{``. The question-answering and judging templates are
+    suite-specific, so only one suite's pair is populated in any given set —
+    and neither is present in the interactive set, which has no scoring pass.
+    """
+
+    #: Edge label -> template, keyed by the pairs in ``engine._BOUNDARY_KEYS``.
+    boundaries: dict[str, str] = field(default_factory=dict)
+    #: Perspective letter (``O``/``S``/``B``) -> template.
+    perspectives: dict[str, str] = field(default_factory=dict)
+    #: Re-integrates the three corner answers into one text.
+    summary: str = ""
+    opentom_qa: str = ""
+    opentom_judge: str = ""
+    gpqa_qa: str = ""
+    gpqa_judge: str = ""
+
+
+@dataclass
+class MetaPrompts:
+    """Templates the polycontextural meta layer formats."""
+
+    judge_subjective: str = ""
+    judge_objective: str = ""
+    judge_dialectical: str = ""
+    #: Turns a positive verdict into a boundary statement for the next cycle.
+    boundary_negation: str = ""
+    expand_input: str = ""
+    refine_input: str = ""
+    contradiction_check: str = ""
+    drift_check: str = ""
+
+
+@dataclass
+class PromptsConfig:
+    """Both template sets, selected as config groups.
+
+    Selecting a set is ``prompts/meta=gpqa``; changing one template is
+    ``prompts.meta.judge_objective="..."``; sweeping variants is
+    ``-m prompts/meta=default,gpqa``. None of that required code before only
+    because the sets were Python classes pointing at packaged JSON files.
+    """
+
+    reflexion: ReflexionPrompts = field(default_factory=ReflexionPrompts)
+    meta: MetaPrompts = field(default_factory=MetaPrompts)
+
+
+@dataclass
 class EngineConfig:
     """The recursive reflexion engine itself."""
 
-    #: Packaged prompt template file, or an absolute path to your own.
-    prompts: str = "reflexion.json"
     max_workers: int = 8
 
 
@@ -246,5 +295,6 @@ class RootConfig:
     backends: BackendsConfig = field(default_factory=BackendsConfig)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
+    prompts: PromptsConfig = field(default_factory=PromptsConfig)
     meta: MetaLayerConfig = field(default_factory=MetaLayerConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)

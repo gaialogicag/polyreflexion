@@ -1,0 +1,55 @@
+# Interactive question answering: same judges as the default set, but the
+# expansion and refinement templates demand one decisive answer rather than
+# a survey. Composed onto `default`, overriding only those two.
+
+defaults:
+  - base_meta_prompts
+  - default
+
+expand_input: |
+  Original question:
+  {question}
+
+  Current answer:
+  {answer}
+
+  Judge feedback on the current answer (address every NOT satisfied item):
+  {judge_feedback}
+
+  Expansion axis: {dimension}
+
+  Semantic boundary for this axis:
+  {boundary}
+
+  Task: Produce the single best possible answer to the original question.
+  Requirements:
+  - Fix every failing judge concern listed above.
+  - Preserve what satisfied judges already approved.
+  - If dialectical was R (redundant), add genuinely new substance — do not
+    paraphrase the previous answer.
+  - Use the boundary to find what the current answer still misses.
+  - Answer directly and decisively; do not catalogue viewpoints.
+  Plain English only.
+refine_input: |
+  Original question:
+  {question}
+
+  Current answer:
+  {answer}
+
+  Judge feedback on the current answer:
+  {judge_feedback}
+
+  Strength to preserve at apex {apex}:
+  {apex_guidance}
+
+  [Region]
+  Apex: {apex}
+  Left boundary ({left_label}): {left_boundary}
+  Right boundary ({right_label}): {right_boundary}
+
+  Task: Deepen inside this refined region, then output the single best direct
+  answer to the original question. The left/right boundaries are failing judges'
+  concerns — satisfy them while keeping the apex strength. Target: earn approval
+  from all three judges (authentic, objectively defensible, dialectically novel).
+  Do not list boundaries or competing perspectives in the reply. Plain English only.

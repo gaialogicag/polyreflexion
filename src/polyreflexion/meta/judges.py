@@ -42,7 +42,7 @@ class PolyJudge:
     def __init__(
         self,
         clients,  # LLMClient | dict[Dimension, LLMClient]
-        prompts: MetaPromptRegistry | None = None,
+        prompts: MetaPromptRegistry,
         *,
         parallel: bool = True,
     ) -> None:
@@ -52,7 +52,7 @@ class PolyJudge:
             self._clients = dict(clients)
         else:
             self._clients = {dim: clients for dim in DIMENSION_ORDER}
-        self._prompts = prompts or MetaPromptRegistry()
+        self._prompts = prompts
         self._parallel = parallel
 
     def evaluate(self, observation: Observation) -> PolyEvaluation:

@@ -23,12 +23,12 @@ class BoundaryGenerator:
     def __init__(
         self,
         client,  # LLMClient-compatible: .complete(prompt) -> str
-        prompts: MetaPromptRegistry | None = None,
+        prompts: MetaPromptRegistry,
         *,
         parallel: bool = True,
     ) -> None:
         self._client = client
-        self._prompts = prompts or MetaPromptRegistry()
+        self._prompts = prompts
         self._parallel = parallel
 
     def negations(

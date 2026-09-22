@@ -1,0 +1,86 @@
+# Engine templates for interactive question answering.
+#
+# The default set is tuned for OpenToM story summaries. Interactive use needs
+# the opposite: treat the three perspectives as internal reasoning material
+# and emit one best answer, never a catalogue of competing views.
+#
+# There is no question-answering pass here, so no *_qa or *_judge templates.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this question / text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between objectivity and subjectivity for answering it? No math, codes, IDs, or puzzle formatting.
+  objectivity_conceptuality: |-
+    Given this question / text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between objectivity and conceptuality for answering it? No math, codes, IDs, or puzzle formatting.
+  conceptuality_subjectivity: |-
+    Given this question / text:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between conceptuality and subjectivity for answering it? No math, codes, IDs, or puzzle formatting.
+perspectives:
+  O: |
+    Question / input:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective standpoint, contribute 2-4 plain-English sentences that help
+    answer the question. Focus on facts, constraints, and what can be checked.
+    Do not write a full multi-view essay — just the objective contribution.
+    No math, codes, IDs, or puzzle formatting.
+  S: |
+    Question / input:
+    {input}
+
+    Region context:
+    {context}
+
+    From a subjective standpoint, contribute 2-4 plain-English sentences that help
+    answer the question. Focus on intentions, beliefs, values, and lived stakes.
+    Do not write a full multi-view essay — just the subjective contribution.
+    No math, codes, IDs, or puzzle formatting.
+  B: |
+    Question / input:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual standpoint, contribute 2-4 plain-English sentences that help
+    answer the question. Focus on concepts, tensions, and how the issue hangs
+    together. Do not write a full multi-view essay — just the conceptual contribution.
+    No math, codes, IDs, or puzzle formatting.
+summary: |
+  Question:
+  {input}
+
+  You have reasoned about this question from three complementary angles.
+  Use them as internal material only — do not list or summarize them separately
+  in your reply.
+
+  Objectivity (O) notes:
+  {corner_o}
+
+  Subjectivity (S) notes:
+  {corner_s}
+
+  Conceptuality (B) notes:
+  {corner_b}
+
+  Task: Write the single best possible answer to the question above.
+  Requirements:
+  - Answer the question directly and decisively.
+  - Prefer one clear position (or a precise conditional) over surveying options.
+  - Do not structure the reply as "from an objective view / subjective view /
+    conceptual view" or similar.
+  - Plain English. No math puzzles, codes, segment IDs, or meta-commentary about
+    the reasoning process.

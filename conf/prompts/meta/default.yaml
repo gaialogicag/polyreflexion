@@ -1,0 +1,133 @@
+# General-purpose polycontextural judges and boundary templates.
+
+defaults:
+  - base_meta_prompts
+
+judge_subjective: |-
+  You are a polycontextural judge for the SUBJECTIVE context.
+
+  Original input:
+  {question}
+
+  Answer under evaluation:
+  {answer}
+
+  Perspective artifacts from the reasoning process (O = objective, S = subjective, B = conceptual):
+  {corners}
+
+  Question: Is the answer authentic, internally coherent, and faithful to its own perspective? Judge coherence within the answer's own standpoint, not factual truth.
+
+  In your rationale, name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "A" or "F", "rationale": "one short paragraph naming the decisive statements"}}
+judge_objective: |-
+  You are a polycontextural judge for the OBJECTIVE context.
+
+  Original input:
+  {question}
+
+  Answer under evaluation:
+  {answer}
+
+  Question: Is the answer objectively correct and defensible given the input?
+
+  In your rationale, name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "W" or "F", "rationale": "one short paragraph naming the decisive statements"}}
+judge_dialectical: |-
+  You are a polycontextural judge for the DIALECTICAL context.
+
+  Original input:
+  {question}
+
+  Answer under evaluation:
+  {answer}
+
+  Answer from the previous cycle (may be '(none)' on the first cycle):
+  {previous_answer}
+
+  Question: Does this answer introduce genuine semantic novelty relative to the question and the previous answer, or does it merely restate what was already implicit?
+
+  In your rationale, name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "W" or "R", "rationale": "one short paragraph naming the decisive statements"}}
+boundary_negation: |-
+  An answer was judged positively in the {dimension} context and will be expanded along that axis.
+
+  Original question:
+  {question}
+
+  Answer:
+  {answer}
+
+  Full judge feedback on this answer:
+  {judge_feedback}
+
+  Positive verdict in the {dimension} context ({verdict_label}):
+  {rationale}
+
+  Failing judges — the boundary AND the next answer must help fix these:
+  {repair_priorities}
+
+  Write a semantic boundary (2-4 plain English sentences) that:
+  1. States what still separates this answer from its opposite in the {dimension} context (describe the boundary, not the opposite).
+  2. Explicitly addresses each failing judge's concern so the next answer can earn their approval.
+  3. If dialectical failed (R = redundant), the boundary must name what genuinely new content is still missing.
+expand_input: |-
+  Original question:
+  {question}
+
+  Current answer:
+  {answer}
+
+  Judge feedback on the current answer (address every NOT satisfied item):
+  {judge_feedback}
+
+  Expansion axis: {dimension}
+
+  Semantic boundary for this axis:
+  {boundary}
+
+  Task: construct the missing semantic coordinate implied by this boundary and the judge feedback above. The new answer must:
+  - Fix every failing judge concern listed above.
+  - Preserve what the satisfied judges already approved.
+  - Add genuine new substance if dialectical was R (redundant).
+  Do not merely restate or polish the current answer. Answer the original question from the new coordinate.
+refine_input: |-
+  Original question:
+  {question}
+
+  Current answer:
+  {answer}
+
+  Judge feedback on the current answer:
+  {judge_feedback}
+
+  Strength to preserve at apex {apex}:
+  {apex_guidance}
+
+  [Region]
+  Apex: {apex}
+  Left boundary ({left_label}): {left_boundary}
+  Right boundary ({right_label}): {right_boundary}
+
+  Task: reason strictly inside this refined sub-region. The two boundaries come from failing judges — treat them as fixed constraints. Deepen the answer until it would satisfy ALL three judges (target triple: authentic, objectively defensible, and dialectically novel). Answer the original question directly.
+contradiction_check: |-
+  Boundary A:
+  {first}
+
+  Boundary B:
+  {second}
+
+  Are these two boundary descriptions mutually contradictory? Reply with exactly one word: yes or no.
+drift_check: |-
+  Original question:
+  {question}
+
+  Answer:
+  {answer}
+
+  Does this answer still address the original question? Reply with exactly one word: yes or no.

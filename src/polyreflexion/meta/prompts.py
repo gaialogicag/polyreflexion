@@ -1,22 +1,16 @@
 """Prompt registry for the meta layer.
 
-Kept separate from the engine's ``PromptRegistry`` so meta prompts can evolve
-without touching the proven reflexion templates.  Templates live in
-``polyreflexion/prompts/meta_default.json``; JSON braces inside templates are
-escaped as ``{{``.
+Kept separate from the engine's ``PromptRegistry`` so meta templates can evolve
+without touching the proven reflexion ones. The sets live in
+``conf/prompts/meta/``; a literal brace inside a template is written ``{{``.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from dataclasses import asdict
 
+from polyreflexion.config import MetaPrompts
 from polyreflexion.meta.datatypes import Dimension
-from polyreflexion.resources import prompt_path
-
-#: Default meta templates. Profiles in :mod:`polyreflexion.meta.profiles`
-#: select a different file per evaluation context.
-META_PROMPTS_PATH = prompt_path("meta_default.json")
 
 _JUDGE_KEYS: dict[Dimension, str] = {
     Dimension.SUBJECTIVE: "judge_subjective",
@@ -26,11 +20,10 @@ _JUDGE_KEYS: dict[Dimension, str] = {
 
 
 class MetaPromptRegistry:
-    """Load and format the meta-layer prompt templates."""
+    """Formats the meta-layer templates from a configured set."""
 
-    def __init__(self, path: Path | None = None) -> None:
-        self._path = Path(path) if path is not None else META_PROMPTS_PATH
-        self._templates: dict[str, str] = json.loads(self._path.read_text(encoding="utf-8"))
+    def __init__(self, prompts: MetaPrompts) -> None:
+        self._templates: dict[str, str] = asdict(prompts)
 
     def _format(self, key: str, **kwargs: str) -> str:
         return self._templates[key].format(**kwargs)

@@ -39,6 +39,24 @@ def text_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _hash_templates(prompts: object, prefix: str = "") -> dict[str, str]:
+    """Flatten a prompt config into ``dotted.name -> sha256``."""
+    out: dict[str, str] = {}
+    if isinstance(prompts, dict):
+        items = list(prompts.items())
+    elif hasattr(prompts, "__dict__"):
+        items = list(vars(prompts).items())
+    else:
+        return out
+    for key, value in items:
+        name = f"{prefix}{key}"
+        if isinstance(value, str):
+            out[name] = text_sha256(value)
+        else:
+            out.update(_hash_templates(value, f"{name}."))
+    return out
+
+
 def _git(*args: str) -> str | None:
     """Run a git command in the package's repository, or return ``None``.
 
@@ -129,7 +147,9 @@ class Provenance:
     packages: dict[str, str] = field(default_factory=dict)
     models: list[ModelInfo] = field(default_factory=list)
     datasets: list[DatasetInfo] = field(default_factory=list)
-    #: filename -> sha256 of every prompt template the run loaded.
+    #: Dotted template name -> sha256, e.g. ``reflexion.summary``. Prompts are
+    #: configuration now, so the run's config carries the text; this is what
+    #: makes a change to it detectable at a glance.
     prompts: dict[str, str] = field(default_factory=dict)
     usage: UsageInfo = field(default_factory=UsageInfo)
 
@@ -139,22 +159,26 @@ class Provenance:
         *,
         models: list[ModelInfo] | None = None,
         datasets: list[DatasetInfo] | None = None,
-        prompt_files: list[Path] | None = None,
+        prompts: object | None = None,
     ) -> Provenance:
-        """Gather everything available in this process."""
+        """Gather everything available in this process.
+
+        ``prompts`` is the resolved :class:`~polyreflexion.config.PromptsConfig`.
+        Each template is hashed on its own, so comparing two runs names the
+        template that changed rather than only reporting that the set differs.
+        """
         packages: dict[str, str] = {}
         for name in _TRACKED_PACKAGES:
             try:
                 packages[name] = _pkg_version(name)
             except PackageNotFoundError:
                 continue
-        prompts = {p.name: file_sha256(p) for p in (prompt_files or []) if p.is_file()}
         return cls(
             git=GitInfo.collect(),
             packages=packages,
             models=models or [],
             datasets=datasets or [],
-            prompts=prompts,
+            prompts=_hash_templates(prompts) if prompts is not None else {},
         )
 
     def to_dict(self) -> dict:

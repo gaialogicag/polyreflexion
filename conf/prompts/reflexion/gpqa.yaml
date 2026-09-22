@@ -1,0 +1,89 @@
+# Engine templates for GPQA: the tree builds a scientific reasoning summary
+# and never emits a letter; the question-answering pass picks A-D from it.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between established facts / definitions and uncertain inference or modeling assumptions? Do not pick an answer letter yet.
+  objectivity_conceptuality: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between concrete quantities / mechanisms and the abstract principle or law that organizes them? Do not pick an answer letter yet.
+  conceptuality_subjectivity: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the governing concept and the heuristic shortcuts or distractors that could mislead a solver? Do not pick an answer letter yet.
+perspectives:
+  O: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, list the key facts, quantities, constraints, and definitions that must hold (2-4 sentences). Do not commit to a final choice letter yet.
+  S: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a solver's subjective perspective, note likely traps, tempting distractors, and where intuition may conflict with the correct mechanism (2-4 sentences). Do not commit to a final choice letter yet.
+  B: |-
+    Given this graduate-level science multiple-choice problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name the governing principle, law, or mechanism and how it structures the solution (2-4 sentences). Do not commit to a final choice letter yet.
+summary: |-
+  Original problem:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated scientific reasoning summary for solving this problem. Cover the governing principle, critical constraints, and how distractors fail. Do NOT state a final answer letter (A/B/C/D).
+gpqa_qa: |-
+  You are answering a graduate-level science multiple-choice question (GPQA).
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one letter): {label_space}
+
+  Rules:
+  - Reply with ONLY one letter from the allowed answers.
+  - Prefer the form: \\boxed{{LETTER}}
+  - No explanation, no analysis, no extra words.
+gpqa_judge: |-
+  You are evaluating a GPQA multiple-choice answer.
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold letter (ignore surrounding text if the letter is clear).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "A or B or C or D or UNKNOWN"}}

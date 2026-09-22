@@ -37,7 +37,7 @@ def extract_choice_letter(prediction: str, label_space: str = "A, B, C, D") -> s
 class GPQAJudge:
     """Score GPQA answers: exact letter match first, LLM judge as fallback."""
 
-    def __init__(self, client: LLMClient, prompts: PromptRegistry | None = None) -> None:
+    def __init__(self, client: LLMClient, prompts: PromptRegistry) -> None:
         self._client = client
         self._prompts = prompts
 

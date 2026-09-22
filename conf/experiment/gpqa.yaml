@@ -1,15 +1,16 @@
 # @package _global_
 # GPQA Diamond: 198 graduate-level biology / physics / chemistry items.
 #
-# Published suite: 100 questions, seed 42, namespace gpqa_v1, profile gpqa.
-# nano_meta_c3 48.0% vs nano_direct 30.0%. Caveat recorded with the result:
-# meta cycle 0 re-runs a depth-1 reflexion outside the nano_reflexion cache,
-# so part of the gap over plain reflexion (46.0%) is sampling variance.
+# When comparing a meta condition against plain reflexion, note that meta
+# cycle 0 runs its own depth-1 reflexion independently of the nano_reflexion
+# summary cache, so part of any gap is sampling variance.
 
 defaults:
   - override /dataset: gpqa
   - override /meta: gpqa
-  - override /engine: gpqa
+  - override /engine: default
+  - override /prompts/reflexion: gpqa
+  - override /prompts/meta: gpqa
 
 experiment:
   suite: gpqa

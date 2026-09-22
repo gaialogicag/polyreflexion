@@ -16,7 +16,9 @@ from polyreflexion.config import (
     EngineConfig,
     ExperimentConfig,
     MetaLayerConfig,
+    MetaPrompts,
     PathsConfig,
+    ReflexionPrompts,
     RootConfig,
 )
 
@@ -31,4 +33,8 @@ def register() -> ConfigStore:
     cs.store(group="engine", name="base_engine", node=EngineConfig)
     cs.store(group="meta", name="base_meta", node=MetaLayerConfig)
     cs.store(group="paths", name="base_paths", node=PathsConfig)
+    # Prompt sets are nested groups, so their schemas are registered under the
+    # same group paths the YAML files live in.
+    cs.store(group="prompts/reflexion", name="base_reflexion_prompts", node=ReflexionPrompts)
+    cs.store(group="prompts/meta", name="base_meta_prompts", node=MetaPrompts)
     return cs

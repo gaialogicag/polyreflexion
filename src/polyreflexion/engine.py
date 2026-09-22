@@ -7,15 +7,10 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 
-from polyreflexion.config import OllamaConfig
+from polyreflexion.config import OllamaConfig, ReflexionPrompts
 from polyreflexion.models.base import CallableLLMClient, LLMClient
 from polyreflexion.models.ollama import OllamaClient
-from polyreflexion.resources import prompt_path
-
-#: Default engine templates. Override per run through ``EngineConfig.prompts``.
-PROMPTS_PATH = prompt_path("reflexion.json")
 
 
 class Perspective(Enum):
@@ -163,21 +158,24 @@ class StubLLMClient:
 
 
 class PromptRegistry:
-    """External prompt templates loaded from JSON."""
+    """Formats the engine's templates.
 
-    def __init__(self, path: Path | None = None) -> None:
-        path = path or PROMPTS_PATH
-        with path.open(encoding="utf-8") as f:
-            data = json.load(f)
+    Built from a :class:`~polyreflexion.config.ReflexionPrompts`, which Hydra
+    composes from ``conf/prompts/reflexion/``. Nothing here reads a file: the
+    templates are configuration, so they are selected, overridden and recorded
+    the same way every other setting is.
+    """
 
-        self._boundaries = data["boundaries"]
-        self._perspectives = {Perspective(k): v for k, v in data["perspectives"].items()}
-        self._summary = data["summary"]
-        # OpenToM and GPQA QA/judge keys are suite-specific; only one suite may be present.
-        self._opentom_qa = data.get("opentom_qa", "")
-        self._opentom_judge = data.get("opentom_judge", "")
-        self._gpqa_qa = data.get("gpqa_qa", "")
-        self._gpqa_judge = data.get("gpqa_judge", "")
+    def __init__(self, prompts: ReflexionPrompts) -> None:
+        self._boundaries = dict(prompts.boundaries)
+        self._perspectives = {Perspective(k): v for k, v in prompts.perspectives.items()}
+        self._summary = prompts.summary
+        # The QA and judge templates are suite-specific: a given set carries
+        # OpenToM's pair, GPQA's pair, or neither (the interactive set).
+        self._opentom_qa = prompts.opentom_qa
+        self._opentom_judge = prompts.opentom_judge
+        self._gpqa_qa = prompts.gpqa_qa
+        self._gpqa_judge = prompts.gpqa_judge
 
     def boundary(self, edge: frozenset[Perspective]) -> str:
         return self._boundaries[_BOUNDARY_KEYS[edge]]
@@ -252,13 +250,13 @@ class ReflexionEngine:
         self,
         llm: LLMClient | Callable[[str], str],
         *,
-        prompts: PromptRegistry | None = None,
+        prompts: PromptRegistry,
         max_depth: int = 2,
         max_workers: int | None = None,
         parallel: bool = True,
     ) -> None:
         self._llm = llm if isinstance(llm, LLMClient) else CallableLLMClient(llm)
-        self._prompts = prompts or PromptRegistry()
+        self._prompts = prompts
         self._max_depth = max_depth
         self._parallel = parallel
         self._llm_pool: ThreadPoolExecutor | None = None
@@ -384,22 +382,6 @@ class ReflexionEngine:
         return "\n".join(parts)
 
 
-def load_prompts(
-    path: Path | None = None,
-) -> tuple[
-    dict[frozenset[Perspective], str],
-    dict[Perspective, str],
-]:
-    """Load prompt templates (legacy helper for backward compatibility)."""
-    registry = PromptRegistry(path)
-    boundary_prompts = {edge: registry.boundary(edge) for edge in _BOUNDARY_KEYS}
-    perspective_prompts = {p: registry.perspective(p) for p in Perspective}
-    return boundary_prompts, perspective_prompts
-
-
-BOUNDARY_PROMPTS, PERSPECTIVE_PROMPTS = load_prompts()
-
-
 def call_llm(prompt: str, config: OllamaConfig | None = None) -> str:
     """One-shot Ollama call returning only the final answer.
 
@@ -431,14 +413,20 @@ def extract_corner_answers(tree: Node) -> dict[Perspective, str]:
 
 def reflexion(
     text: str,
+    prompts: PromptRegistry,
     *,
     max_depth: int = 2,
     llm: LLMClient | Callable[[str], str] = call_llm,
     max_workers: int | None = None,
 ) -> ReflexionResult:
-    """Run parallel reflexion (convenience wrapper around ReflexionEngine)."""
+    """Run parallel reflexion (convenience wrapper around ReflexionEngine).
+
+    ``prompts`` is required: templates are configuration, so there is no
+    implicit default set to fall back on.
+    """
     with ReflexionEngine(
         llm,
+        prompts=prompts,
         max_depth=max_depth,
         max_workers=max_workers,
     ) as engine:
@@ -488,16 +476,3 @@ def print_final(result: ReflexionResult) -> None:
     print("SUMMARY")
     print("=" * 60)
     print(f"\n{result.summary}")
-
-
-if __name__ == "__main__":
-    import sys
-
-    sample = (
-        "The sky appears blue because sunlight scatters in the atmosphere. I find this beautiful."
-    )
-    use_stub = "--stub" in sys.argv
-    llm: LLMClient | Callable[[str], str] = StubLLMClient() if use_stub else OllamaClient()
-    result = reflexion(sample, max_depth=1, llm=llm)
-    print_tree(result.tree)
-    print_final(result)

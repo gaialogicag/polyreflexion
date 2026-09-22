@@ -45,6 +45,11 @@ jobs:
             'experiment.conditions=[nano_direct],[nano_reflexion]'
           polyrx-ask --stub "offline smoke test"
           polyrx-reflect --stub "offline smoke test"
+      - name: Prompt sets are selectable and overridable
+        run: |
+          polyrx-bench -m experiment=smoke prompts/meta=default,opentom,gpqa
+          polyrx-bench experiment=smoke \
+            'prompts.meta.drift_check="CUSTOM {answer}"' --cfg job
 
   no-extras:
     # The viz and gpqa extras must be genuinely optional: a base install has to
@@ -69,23 +74,19 @@ jobs:
       - run: python -m build
       - name: Check metadata
         run: twine check dist/*
-      - name: Wheel must carry the prompts and must not carry the config tree
+      - name: Wheel must not carry configuration
         run: |
           python - <<'PY'
           import zipfile, glob, sys
           wheel = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(wheel).namelist()
-          required = [
-              "polyreflexion/prompts/reflexion.json",
-              "polyreflexion/prompts/meta_default.json",
-          ]
-          missing = [r for r in required if r not in names]
-          if missing:
-              sys.exit(f"missing from wheel: {missing}")
-          # conf/ lives at the repository root on purpose; shipping a second
-          # copy inside the wheel would make it ambiguous which one is live.
-          leaked = [n for n in names if "/conf/" in n]
+          # The config tree and the prompt templates live at the repository
+          # root. A second copy inside the wheel would make it ambiguous which
+          # one a run actually used.
+          leaked = [n for n in names if "/conf/" in n or "/prompts/" in n]
           if leaked:
-              sys.exit(f"config tree must not be packaged: {leaked[:5]}")
-          print(f"{wheel}: prompts packaged, config tree correctly absent")
+              sys.exit(f"configuration must not be packaged: {leaked[:5]}")
+          if not any(n.endswith("polyreflexion/engine.py") for n in names):
+              sys.exit("wheel does not contain the package")
+          print(f"{wheel}: code packaged, configuration correctly absent")
           PY

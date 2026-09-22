@@ -37,7 +37,7 @@ from polyreflexion.conf_store import register
 from polyreflexion.config import RootConfig
 from polyreflexion.models.registry import set_active_backends
 from polyreflexion.provenance import ModelInfo, Provenance
-from polyreflexion.resources import PROMPTS_DIR, find_conf_dir
+from polyreflexion.resources import find_conf_dir
 
 register()
 
@@ -103,6 +103,20 @@ def _require_credentials(cfg: RootConfig) -> None:
         )
 
 
+def _prompt_set_name() -> str:
+    """Which meta prompt set Hydra selected, for the run record.
+
+    The templates themselves travel in the config; this is only the label a
+    report prints, so a reader can say "gpqa set" without diffing the text.
+    """
+    from hydra.core.hydra_config import HydraConfig
+
+    try:
+        return str(HydraConfig.get().runtime.choices["prompts/meta"])
+    except Exception:
+        return "unknown"
+
+
 def _model_info(cfg: RootConfig) -> list[ModelInfo]:
     """Record the models that will actually be called, for the run's provenance."""
     infos: list[ModelInfo] = []
@@ -160,7 +174,8 @@ def _run_opentom(cfg: RootConfig) -> int:
         conditions=conditions,
         use_stub=exp.use_stub,
         cache_namespace=exp.cache_namespace,
-        meta_prompt_profile=cfg.meta.profile,
+        meta_prompt_profile=_prompt_set_name(),
+        prompts=cfg.prompts,
         exclude_story_ids=exclude_ids,
         paths=cfg.paths,
     )
@@ -172,7 +187,7 @@ def _run_opentom(cfg: RootConfig) -> int:
 
     run.provenance = Provenance.collect(
         models=_model_info(cfg),
-        prompt_files=sorted(PROMPTS_DIR.glob("*.json")),
+        prompts=cfg.prompts,
     )
     json_path, report_path = save_run(run, results_dir)
     write_report(run, report_path)
@@ -222,7 +237,8 @@ def _run_gpqa(cfg: RootConfig) -> int:
         conditions=conditions,
         use_stub=exp.use_stub,
         cache_namespace=exp.cache_namespace,
-        meta_prompt_profile=cfg.meta.profile,
+        meta_prompt_profile=_prompt_set_name(),
+        prompts=cfg.prompts,
         exclude_question_ids=exclude_ids,
         fixed_question_ids=fixed_ids,
         paths=cfg.paths,
@@ -236,7 +252,7 @@ def _run_gpqa(cfg: RootConfig) -> int:
 
     run.provenance = Provenance.collect(
         models=_model_info(cfg),
-        prompt_files=sorted(PROMPTS_DIR.glob("*.json")),
+        prompts=cfg.prompts,
     )
     json_path, report_path = save_run(run, results_dir)
     write_report(run, report_path)

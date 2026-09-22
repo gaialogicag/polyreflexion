@@ -31,9 +31,9 @@ def labels_match(prediction: str, gold: str, label_space: str) -> bool:
 class OpenToMJudge:
     """Score model answers against gold labels using an LLM judge."""
 
-    def __init__(self, client: LLMClient, prompts: PromptRegistry | None = None) -> None:
+    def __init__(self, client: LLMClient, prompts: PromptRegistry) -> None:
         self._client = client
-        self._prompts = prompts or PromptRegistry()
+        self._prompts = prompts
 
     def evaluate(
         self,

@@ -48,6 +48,11 @@ polyrx-bench experiment=smoke
 
 ## Changing a prompt
 
+Templates live in `conf/prompts/`, not in the package. Edit the YAML; there is
+no Python to touch. A new set is a new file in `conf/prompts/reflexion/` or
+`conf/prompts/meta/`, composed onto its schema (`base_reflexion_prompts` /
+`base_meta_prompts`) so a misspelled template name fails at composition.
+
 Prompt edits invalidate cached summaries. Bump `experiment.cache_namespace`
 when you change a template, otherwise the next run silently reuses summaries
 built by the old prompt and the number you publish corresponds to no version of

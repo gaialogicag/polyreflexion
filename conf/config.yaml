@@ -13,6 +13,8 @@ defaults:
   - backends: openai
   - dataset: opentom
   - engine: default
+  - prompts/reflexion: default
+  - prompts/meta: default
   - meta: default
   - paths: default
   - _self_

@@ -6,6 +6,8 @@ defaults:
   - override /dataset: opentom
   - override /meta: default
   - override /engine: default
+  - override /prompts/reflexion: default
+  - override /prompts/meta: default
 
 experiment:
   suite: opentom

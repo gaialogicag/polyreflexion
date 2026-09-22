@@ -62,7 +62,7 @@ class MetaController:
         boundary_client,  # LLMClient-compatible; also used for drift checks
         *,
         config: MetaConfig | None = None,
-        prompts: MetaPromptRegistry | None = None,
+        prompts: MetaPromptRegistry,
     ) -> None:
         # Local import avoids a hard module cycle if strategy ever needs the controller.
         from polyreflexion.meta.strategy import StrategyPlanner
@@ -70,7 +70,7 @@ class MetaController:
         self._engine_factory = engine_factory
         self._judge = judge
         self._config = config or MetaConfig()
-        self._prompts = prompts or MetaPromptRegistry()
+        self._prompts = prompts
         self._interpreter = Interpreter(
             reinterpret_full_positive_on_cycle0=(self._config.reinterpret_full_positive_on_cycle0)
         )

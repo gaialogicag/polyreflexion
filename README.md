@@ -51,8 +51,10 @@ concurrently.
 ## Run it
 
 Everything is configured through [Hydra](https://hydra.cc). The config tree is
-`conf/` at the repository root — read it, copy it, edit it. It is deliberately
-not packaged inside `src/`: configs are the experiment, not library internals.
+`conf/` at the repository root — read it, copy it, edit it. Nothing under
+`src/` is configuration: **the prompt templates live in `conf/prompts/` too**,
+because a prompt is the thing a researcher changes most and burying it in the
+package made it the hardest thing to change.
 
 Commands are run from a checkout. The `conf/` directory is located by searching
 upward from the working directory, so running from a subdirectory works too.
@@ -96,6 +98,33 @@ polyrx-bench -m experiment=gpqa experiment.merge_from=latest \
 `merge_from` adds conditions to the **same** items. `extend_from` adds new
 items under the same conditions. `merge_from=latest` resolves to the newest run
 file of that suite, so a sweep does not need a pasted timestamp.
+
+## Prompts
+
+Templates are config groups, not files inside the package:
+
+```
+conf/prompts/reflexion/{default,gpqa,ask}.yaml    # engine templates
+conf/prompts/meta/{default,opentom,gpqa,ask}.yaml # judge / boundary templates
+```
+
+```bash
+polyrx-bench prompts/meta=gpqa                              # select a set
+polyrx-bench -m prompts/meta=default,opentom,gpqa           # sweep sets
+polyrx-bench 'prompts.meta.drift_check="..."'               # override one template
+```
+
+`{name}` placeholders are `str.format` fields and a literal brace is `{{`.
+Hydra's override grammar reserves `{`, so a command-line value containing a
+placeholder needs inner quotes, as above.
+
+An experiment selects its sets like any other group — `experiment=gpqa` pulls
+`prompts/reflexion=gpqa` and `prompts/meta=gpqa`. Each template's sha256 is
+recorded individually in the run's provenance block, so comparing two runs
+names the template that changed rather than only saying the set differs.
+
+Changing a template invalidates cached summaries: bump
+`experiment.cache_namespace` when you edit one.
 
 ## Conditions
 
@@ -184,12 +213,12 @@ the old prompt.
 
 | Path | Role |
 |---|---|
-| `conf/` | Hydra config tree (repository root, not packaged) |
+| `conf/` | Hydra config tree, including all prompt templates (not packaged) |
 | `polyreflexion/engine.py` | `ReflexionEngine` — the recursive tree and its parallel pools |
 | `polyreflexion/conditions.py` | The experiment grid as data |
 | `polyreflexion/config.py` | Every configurable knob, as typed dataclasses |
-| `polyreflexion/prompts/` | Engine and meta prompt templates |
 | `polyreflexion/meta/` | Judges, interpretation, geometry, strategy, controller, trace, rendering |
+| `polyreflexion/config.py` (prompt dataclasses) | Schema the prompt YAML is checked against |
 | `polyreflexion/models/` | LLM clients and the role registry |
 | `polyreflexion/benchmark/` | OpenToM and GPQA loaders, runners, judges, metrics, reports |
 | `polyreflexion/data/` | Pinned, checksum-verified dataset fetching |

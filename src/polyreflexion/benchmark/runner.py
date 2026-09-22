@@ -24,8 +24,9 @@ from polyreflexion.benchmark.opentom_loader import (
     sample_stories,
 )
 from polyreflexion.conditions import Condition, ConditionRegistry, default_registry
-from polyreflexion.config import PathsConfig
+from polyreflexion.config import PathsConfig, PromptsConfig
 from polyreflexion.engine import PromptRegistry, ReflexionEngine, StubLLMClient
+from polyreflexion.meta.prompts import MetaPromptRegistry
 from polyreflexion.models.base import LLMClient
 from polyreflexion.models.ollama import extract_final_answer, looks_degenerate
 from polyreflexion.models.registry import get_client
@@ -95,8 +96,11 @@ class BenchmarkConfig:
     use_stub: bool = False
     # Isolates summary cache for fresh runs (e.g. "ot_v2"). Empty = legacy paths.
     cache_namespace: str = ""
-    # Meta prompt profile: default | opentom | gpqa | ask (see meta/profiles.py).
+    # Name of the selected meta prompt set, recorded so a report can say which
+    # one produced the numbers. The templates themselves live in ``prompts``.
     meta_prompt_profile: str = "default"
+    # Resolved templates, composed by Hydra from conf/prompts/.
+    prompts: PromptsConfig = field(default_factory=PromptsConfig)
     # When set, sample ``num_stories`` new stories excluding these IDs (extend mode).
     exclude_story_ids: frozenset[str] = frozenset()
     # Where results, caches and datasets live. Kept on the config so a run can
@@ -284,7 +288,7 @@ def _build_summaries(
                     max_workers=config.max_workers,
                     use_stub=config.use_stub,
                     max_cycles=meta_cycles,
-                    meta_prompt_profile=config.meta_prompt_profile,
+                    meta_prompts=MetaPromptRegistry(config.prompts.meta),
                     seed_summary=seed_summary,
                 )
                 save_meta_trace(meta_result, meta_trace_path(cache_path))
@@ -344,7 +348,7 @@ def _run_meta_summary(
     max_workers: int,
     use_stub: bool,
     max_cycles: int,
-    meta_prompt_profile: str = "default",
+    meta_prompts: MetaPromptRegistry,
     seed_summary: str | None = None,
 ):
     """Build one story context via the polycontextural meta layer.
@@ -358,9 +362,7 @@ def _run_meta_summary(
     from polyreflexion.meta.datatypes import MetaConfig, MetaResult
     from polyreflexion.meta.factory import build_meta_controller
     from polyreflexion.meta.judges import StubMetaClient
-    from polyreflexion.meta.profiles import get_meta_profile
 
-    meta_prompts = get_meta_profile(meta_prompt_profile).build_registry()
     judge_client = StubMetaClient() if use_stub else get_client("meta_judge")
 
     def engine_factory(engine_depth: int) -> ReflexionEngine:
@@ -477,7 +479,7 @@ def backfill_meta_traces(
                 max_workers=config.max_workers,
                 use_stub=config.use_stub,
                 max_cycles=meta_cycles,
-                meta_prompt_profile=config.meta_prompt_profile,
+                meta_prompts=MetaPromptRegistry(config.prompts.meta),
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             if not cache_path.exists():
@@ -490,7 +492,7 @@ def backfill_meta_traces(
 def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     """Execute the OpenToM pilot benchmark."""
     started = datetime.now(UTC).isoformat()
-    prompts = PromptRegistry()
+    prompts = PromptRegistry(config.prompts.reflexion)
     all_items = load_items()
     if config.exclude_story_ids:
         items = extend_story_sample(
@@ -646,7 +648,7 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
 
 #: Config fields that describe *this process* rather than *this experiment*,
 #: and so do not belong in a results file.
-_RUNTIME_ONLY_FIELDS = ("exclude_story_ids", "condition_registry")
+_RUNTIME_ONLY_FIELDS = ("exclude_story_ids", "condition_registry", "prompts")
 
 
 def drop_conditions(run: BenchmarkRun, conditions: set[str]) -> BenchmarkRun:

@@ -29,6 +29,7 @@ from polyreflexion.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyreflexion.meta.datatypes import MetaConfig, MetaResult
 from polyreflexion.meta.factory import build_meta_controller
 from polyreflexion.meta.judges import StubMetaClient
+from polyreflexion.meta.prompts import MetaPromptRegistry
 from polyreflexion.meta.trace import MetaTrace
 from polyreflexion.meta.viz import render_topology
 from polyreflexion.models.base import LLMClient
@@ -96,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_client = get_client(args.engine)
         judge_client = get_client(args.judge)
 
-    prompts = PromptRegistry()
+    prompts = PromptRegistry(cfg.prompts.reflexion)
 
     def engine_factory(depth: int) -> ReflexionEngine:
         return ReflexionEngine(engine_client, prompts=prompts, max_depth=depth, max_workers=workers)
@@ -105,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_factory,
         judge_client,
         config=MetaConfig(max_cycles=max_cycles, engine_depth=depth),
+        meta_prompts=MetaPromptRegistry(cfg.prompts.meta),
     )
 
     print(

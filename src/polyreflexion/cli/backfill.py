@@ -56,11 +56,15 @@ def main(argv: list[str] | None = None) -> int:
     config = run.config
     if args.stub:
         config.use_stub = True
+    # A saved run records the prompt set's name, not its text, so the templates
+    # come from the current config tree. Pass overrides to reproduce an older
+    # set exactly, e.g. `prompts/meta=opentom`.
+    config.prompts = cfg.prompts
 
     written = backfill_meta_traces(
         narratives,
         config,
-        PromptRegistry(),
+        PromptRegistry(cfg.prompts.reflexion),
         summary_keys=keys,
         force=args.force,
     )
