@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,viz,gpqa]"
       - run: ruff check src
       - run: ruff format --check src
       - run: mypy
@@ -37,6 +37,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[viz,gpqa]"
+      - name: Preflight reports the environment honestly
+        run: polyrx-doctor || true
       - name: Offline benchmark run
         run: polyrx-bench experiment=smoke
       - name: Offline sweep, and the interactive tools

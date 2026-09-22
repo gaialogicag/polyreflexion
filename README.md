@@ -31,12 +31,34 @@ cycle 1 onward `(A,W,W)` terminates normally.
 
 ## Install
 
-Python 3.11 or newer.
+Python 3.11 or newer. With conda:
 
 ```bash
-pip install -e ".[viz,gpqa]"
-cp .env.example .env        # put OPENAI_API_KEY here
+conda env create -f environment.yml
+conda activate polyrx
 ```
+
+Or with a plain virtual environment:
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev,viz,gpqa]"
+```
+
+Then set up credentials and check what is missing:
+
+```bash
+cp .env.example .env        # put OPENAI_API_KEY here
+polyrx-doctor               # says exactly what would block a real run
+```
+
+`polyrx-doctor` checks the interpreter, the config, the condition lock, the
+keys, the local backend and the dataset. Add `--live` and it sends one minimal
+request per model and fetches the dataset — the only way to catch a model name
+the provider has retired, or a gated repository you have no token for.
+
+Everything below works offline with `experiment.use_stub=true`; only real runs
+need a key.
 
 Extras: `viz` adds chart and topology rendering (matplotlib); `gpqa` adds the
 parquet reader used to recover GPQA domain labels. Both are genuinely optional

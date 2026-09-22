@@ -67,6 +67,8 @@ polyrx-reflect = "polyrx.cli.reflect:main"
 polyrx-manifest = "polyrx.cli.manifest:main"
 # Show the experiment grid, or lock it against accidental change.
 polyrx-conditions = "polyrx.cli.conditions:main"
+# Check whether a real run would work, before spending one finding out.
+polyrx-doctor = "polyrx.cli.doctor:main"
 # Write judge traces beside summaries cached before traces were recorded.
 polyrx-backfill = "polyrx.cli.backfill:main"
 
@@ -117,7 +119,9 @@ ignore = [
 known-first-party = ["polyrx"]
 
 [tool.mypy]
-python_version = "3.11"
+# No python_version pin: mypy then targets the interpreter it runs on. Pinning
+# it to the minimum made mypy reject numpy's own stubs, which use 3.12 syntax,
+# for anyone who installed the viz extra.
 packages = ["polyrx"]
 mypy_path = "src"
 ignore_missing_imports = true

@@ -3,10 +3,11 @@
 ## Setup
 
 ```bash
-python3.11 -m venv .venv          # 3.11 or newer
-source .venv/bin/activate
-pip install -e ".[dev,viz,gpqa]"
+conda env create -f environment.yml && conda activate polyrx
+# or: python3.12 -m venv .venv && source .venv/bin/activate
+#     pip install -e ".[dev,viz,gpqa]"
 cp .env.example .env              # put your OPENAI_API_KEY here
+polyrx-doctor                     # what is still missing
 ```
 
 Check the install with the offline path, which needs no key and makes no

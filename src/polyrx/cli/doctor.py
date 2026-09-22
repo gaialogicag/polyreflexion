@@ -1,0 +1,332 @@
+"""Check whether a real run would work, before spending a run finding out.
+
+A benchmark run costs money and takes time, and most of the ways it fails are
+knowable in advance: a missing key, a model name the provider does not serve, a
+gated dataset without a token, Ollama not started. This checks each one and
+says what is blocking, rather than failing on the first API call an hour in.
+
+``--live`` sends one minimal request per model role. That is the only check
+that can catch a model identifier the provider has retired or renamed, which
+no amount of config inspection will tell you.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+from polyrx import __version__
+from polyrx.cli.compose import load_config
+from polyrx.conditions import LOCK_FILENAME, check_against_lock, registry_from_config
+from polyrx.config import RootConfig
+
+OK, WARN, FAIL = "ok", "warn", "fail"
+
+_MARK = {OK: "  ok  ", WARN: " warn ", FAIL: " FAIL "}
+
+
+@dataclass
+class Check:
+    """One thing that either works or explains itself."""
+
+    name: str
+    status: str
+    detail: str
+    fix: str = ""
+
+
+def _python_and_package() -> list[Check]:
+    version = ".".join(str(n) for n in sys.version_info[:3])
+    too_old = sys.version_info < (3, 11)
+    checks = [
+        Check(
+            "python",
+            FAIL if too_old else OK,
+            f"{version} ({sys.executable})",
+            "polyrx needs Python 3.11 or newer." if too_old else "",
+        ),
+        Check("polyrx", OK, f"{__version__}"),
+    ]
+    for module, extra, what in (
+        ("matplotlib", "viz", "charts and topology renderings"),
+        ("pyarrow", "gpqa", "GPQA domain labels"),
+    ):
+        try:
+            __import__(module)
+            checks.append(Check(module, OK, f"present — {what} available"))
+        except ImportError:
+            checks.append(
+                Check(
+                    module,
+                    WARN,
+                    f"missing — {what} will be skipped",
+                    f'pip install -e ".[{extra}]"',
+                )
+            )
+    return checks
+
+
+def _config(cfg: RootConfig) -> list[Check]:
+    checks: list[Check] = []
+    conditions = registry_from_config(cfg.conditions.conditions)
+    checks.append(Check("conditions", OK, f"{len(conditions.names())} in the grid"))
+
+    lock = cfg.paths.resolved("data_dir") / LOCK_FILENAME
+    if not lock.is_file():
+        checks.append(Check("condition lock", WARN, "no lock recorded", "polyrx-conditions lock"))
+    else:
+        problems = check_against_lock(conditions, lock)
+        checks.append(
+            Check(
+                "condition lock",
+                FAIL if problems else OK,
+                f"{len(problems)} mismatch(es)" if problems else "grid matches the lock",
+                "polyrx-conditions lock, deliberately" if problems else "",
+            )
+        )
+
+    prompts = cfg.prompts
+    checks.append(
+        Check(
+            "prompts",
+            OK if prompts.reflexion.qa else WARN,
+            "qa template present"
+            if prompts.reflexion.qa
+            else "no qa template — this set cannot score a benchmark",
+            "" if prompts.reflexion.qa else "prompts/reflexion=default",
+        )
+    )
+    return checks
+
+
+def _credentials(cfg: RootConfig, live: bool) -> list[Check]:
+    checks: list[Check] = []
+    roles = {
+        "nano": cfg.backends.nano,
+        "judge": cfg.backends.judge,
+        "meta_judge": cfg.backends.meta_judge,
+    }
+
+    for role, backend in roles.items():
+        key = os.environ.get(backend.api_key_env, "")
+        if not key:
+            checks.append(
+                Check(
+                    f"{role} key",
+                    FAIL,
+                    f"{backend.api_key_env} is not set",
+                    f"export {backend.api_key_env}=... or put it in .env",
+                )
+            )
+            continue
+        checks.append(Check(f"{role} key", OK, f"{backend.api_key_env} set ({len(key)} chars)"))
+
+        if not live:
+            checks.append(
+                Check(
+                    f"{role} model", WARN, f"{backend.model} — not verified", "re-run with --live"
+                )
+            )
+            continue
+
+        checks.append(_probe_model(role, backend))
+    return checks
+
+
+def _probe_model(role: str, backend) -> Check:
+    """One minimal completion, to prove the model identifier is served."""
+    from polyrx.models.openai_client import OpenAIClient
+
+    try:
+        client = OpenAIClient(backend)
+        client._client.chat.completions.create(
+            model=backend.model,
+            messages=[{"role": "user", "content": "ok"}],
+            max_completion_tokens=1,
+        )
+        return Check(f"{role} model", OK, f"{backend.model} answered")
+    except Exception as exc:
+        text = str(exc)
+        hint = ""
+        lowered = text.lower()
+        if "does not exist" in lowered or "model_not_found" in lowered:
+            hint = f"backends.{role}.model names a model this account cannot use."
+        elif "authentication" in lowered or "api key" in lowered or "401" in text:
+            hint = f"The key in {backend.api_key_env} was rejected."
+        elif "rate" in lowered or "429" in text:
+            hint = "Rate limited. The model exists; try again shortly."
+        return Check(f"{role} model", FAIL, f"{backend.model}: {text[:160]}", hint)
+
+
+def _local_backend(cfg: RootConfig) -> list[Check]:
+    phi = cfg.backends.phi
+    if shutil.which("ollama") is None:
+        return [
+            Check(
+                "ollama",
+                WARN,
+                "not installed — phi_* conditions cannot run",
+                "https://ollama.com, then: ollama pull " + phi.model,
+            )
+        ]
+    try:
+        import json
+        import urllib.request
+
+        with urllib.request.urlopen(f"{phi.host.rstrip('/')}/api/tags", timeout=3) as resp:
+            names = [m["name"] for m in json.load(resp).get("models", [])]
+    except Exception:
+        return [Check("ollama", WARN, f"not reachable at {phi.host}", "ollama serve")]
+
+    have = any(n == phi.model or n.startswith(f"{phi.model}:") for n in names)
+    return [
+        Check(
+            "ollama",
+            OK if have else WARN,
+            f"running; {phi.model} {'pulled' if have else 'NOT pulled'}",
+            "" if have else f"ollama pull {phi.model}",
+        )
+    ]
+
+
+def _dataset(cfg: RootConfig, live: bool) -> list[Check]:
+    from polyrx.data.fetch import MANIFEST_NAME, Manifest
+    from polyrx.datasets import get_adapter
+
+    dataset = cfg.dataset
+    checks: list[Check] = []
+
+    try:
+        get_adapter(dataset)
+        checks.append(Check("dataset adapter", OK, f"{dataset.name} -> {dataset.adapter}"))
+    except ValueError as exc:
+        return [Check("dataset adapter", FAIL, str(exc)[:200])]
+
+    source = dataset.primary
+    if source.path:
+        path = Path(source.path).expanduser()
+        checks.append(
+            Check(
+                "dataset source",
+                OK if path.is_file() else FAIL,
+                f"local file {path}" + ("" if path.is_file() else " — not found"),
+            )
+        )
+    else:
+        gated_note = " (gated)" if source.gated else ""
+        checks.append(
+            Check("dataset source", OK, f"{source.repo_id}/{source.filename}{gated_note}")
+        )
+        if source.revision in {"", "main", "master", "HEAD"}:
+            checks.append(
+                Check(
+                    "dataset pin",
+                    WARN,
+                    f"revision is {source.revision or 'unset'!r} — upstream can change it",
+                    "polyrx-manifest pin",
+                )
+            )
+        if source.gated and not os.environ.get("HF_TOKEN"):
+            checks.append(
+                Check(
+                    "HF_TOKEN",
+                    WARN,
+                    "unset — the gated source will fall through to a fallback",
+                    "Accept the dataset terms on the Hub, then export HF_TOKEN=...",
+                )
+            )
+
+    manifest = Manifest.load(cfg.paths.resolved("data_dir") / MANIFEST_NAME)
+    checks.append(
+        Check(
+            "dataset manifest",
+            OK if manifest.entries else WARN,
+            f"{len(manifest.entries)} file(s) recorded" if manifest.entries else "no manifest",
+            "" if manifest.entries else "polyrx-manifest pin",
+        )
+    )
+
+    if live:
+        checks.append(_probe_dataset(cfg))
+    return checks
+
+
+def _probe_dataset(cfg: RootConfig) -> Check:
+    """Actually fetch the dataset, which is the only real proof of access."""
+    from polyrx.data.fetch import DatasetFetcher
+
+    try:
+        fetcher = DatasetFetcher(
+            cfg.paths.resolved("data_dir"), verify=cfg.dataset.verify_checksums
+        )
+        path = fetcher.fetch_dataset(cfg.dataset)
+        size = path.stat().st_size
+        return Check("dataset fetch", OK, f"{path.name} ({size / 1024:.0f} KiB)")
+    except Exception as exc:
+        return Check("dataset fetch", FAIL, str(exc)[:200])
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="polyrx-doctor",
+        description="Check whether a real benchmark run would work.",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Send one minimal request per model and fetch the dataset. "
+        "The only way to catch a retired model name or a gated repo.",
+    )
+    parser.add_argument("overrides", nargs="*", help="Hydra overrides, e.g. dataset=gpqa")
+    args = parser.parse_args(argv)
+
+    try:
+        cfg = load_config(args.overrides)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(f" FAIL  config did not compose: {exc}")
+        return 1
+
+    groups = [
+        ("Environment", _python_and_package()),
+        ("Configuration", _config(cfg)),
+        ("Model access", _credentials(cfg, args.live)),
+        ("Local backend", _local_backend(cfg)),
+        (f"Dataset: {cfg.dataset.name}", _dataset(cfg, args.live)),
+    ]
+
+    fixes: list[str] = []
+    worst = OK
+    for title, checks in groups:
+        print(f"\n{title}")
+        for check in checks:
+            print(f"  [{_MARK[check.status]}] {check.name:18s} {check.detail}")
+            if check.fix:
+                fixes.append(f"{check.name}: {check.fix}")
+            if check.status == FAIL or (check.status == WARN and worst == OK):
+                worst = check.status if check.status == FAIL else WARN
+
+    print()
+    if worst == FAIL:
+        print("A real run would fail. Blocking problems above.")
+    elif worst == WARN:
+        print("A real run would work, with the caveats above.")
+    else:
+        print("Ready for a real run.")
+
+    if fixes:
+        print("\nTo fix:")
+        for fix in dict.fromkeys(fixes):
+            print(f"  - {fix}")
+    if not args.live:
+        print("\nModel names and dataset access are unverified. Re-run with --live to check them.")
+    return 1 if worst == FAIL else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

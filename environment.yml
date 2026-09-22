@@ -1,0 +1,21 @@
+# Reproduces the environment this project runs in.
+#
+#   conda env create -f environment.yml
+#   conda activate polyrx
+#   pip install -e ".[dev,viz,gpqa]"
+#   cp .env.example .env        # then put your key in it
+#   polyrx-doctor               # says what is still missing
+#
+# Python 3.12 is what continuous integration runs; 3.11 and 3.13 are also
+# supported and tested.
+
+name: polyrx
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  # Everything else comes from pyproject.toml via the editable install above,
+  # so there is one dependency list rather than two that drift apart.
+  - pip:
+      - -e .[dev,viz,gpqa]
