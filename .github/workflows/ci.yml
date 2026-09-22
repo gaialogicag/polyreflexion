@@ -45,6 +45,8 @@ jobs:
             'experiment.conditions=[nano_direct],[nano_reflexion]'
           polyrx-ask --stub "offline smoke test"
           polyrx-reflect --stub "offline smoke test"
+      - name: The condition grid matches its lock
+        run: polyrx-conditions check
       - name: Prompt sets are selectable and overridable
         run: |
           polyrx-bench -m experiment=smoke prompts/meta=default,opentom,gpqa

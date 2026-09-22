@@ -8,25 +8,32 @@ from pathlib import Path
 
 from polyrx.benchmark.gpqa_runner import GPQABenchmarkRun, has_labeled_domains
 from polyrx.benchmark.metrics import compute_metrics
-from polyrx.benchmark.runner import CONDITIONS
 from polyrx.charts import pyplot
 from polyrx.config import ReportConfig
 
 
-def _ordered_conditions(metrics: dict) -> list[str]:
-    known = [c for c in CONDITIONS if c in metrics]
+def _ordered_conditions(metrics: dict, order: tuple[str, ...] = ()) -> list[str]:
+    """Condition names in report order: the configured grid first, then the rest.
+
+    ``order`` is the run's own grid, so a report renders columns in the order
+    the experiment declared rather than in a hard-coded one.
+    """
+    known = [c for c in order if c in metrics]
     extras = [c for c in metrics if c not in known]
     return known + extras
 
 
 def _bar_chart_by_condition(
-    metrics: dict, chart_path: Path, report: ReportConfig | None = None
+    metrics: dict,
+    chart_path: Path,
+    report: ReportConfig | None = None,
+    order: tuple[str, ...] = (),
 ) -> None:
     plt = pyplot()
     if plt is None:
         return
     report = report or ReportConfig()
-    conditions = _ordered_conditions(metrics)
+    conditions = _ordered_conditions(metrics, order)
     acc_scores = [metrics[c].accuracy for c in conditions]
 
     fig, ax = plt.subplots(figsize=(report.chart_width, report.chart_height))
@@ -42,14 +49,17 @@ def _bar_chart_by_condition(
 
 
 def _grouped_chart_by_domain(
-    metrics: dict, chart_path: Path, report: ReportConfig | None = None
+    metrics: dict,
+    chart_path: Path,
+    report: ReportConfig | None = None,
+    order: tuple[str, ...] = (),
 ) -> None:
     plt = pyplot()
     if plt is None:
         return
     report = report or ReportConfig()
     domains = sorted({t for m in metrics.values() for t in m.by_type})
-    conditions = _ordered_conditions(metrics)
+    conditions = _ordered_conditions(metrics, order)
     fig, ax = plt.subplots(figsize=(report.grouped_chart_width, report.grouped_chart_height))
     width = 0.18
     for i, condition in enumerate(conditions):
@@ -68,12 +78,17 @@ def _grouped_chart_by_domain(
     plt.close(fig)
 
 
-def _comparison_chart(metrics: dict, chart_path: Path, report: ReportConfig | None = None) -> None:
+def _comparison_chart(
+    metrics: dict,
+    chart_path: Path,
+    report: ReportConfig | None = None,
+    order: tuple[str, ...] = (),
+) -> None:
     plt = pyplot()
     if plt is None:
         return
     report = report or ReportConfig()
-    labels = _ordered_conditions(metrics)
+    labels = _ordered_conditions(metrics, order)
     scores = [metrics[c].accuracy for c in labels]
     if not labels:
         return
@@ -107,6 +122,8 @@ def write_report(
     # Presentation settings travel on the run, so a report regenerated later
     # looks the same as the one the run produced.
     report = report or getattr(run.config, "report", None) or ReportConfig()
+    # Column order is the run's own grid, not a constant in this file.
+    order = tuple(run.config.conditions)
     metrics = compute_metrics(run.results)
     charts_dir = report_path.parent / "charts"
     charts_dir.mkdir(parents=True, exist_ok=True)
@@ -146,14 +163,12 @@ def write_report(
         "|-----------|----------|---------|-------|",
     ]
 
-    for name in _ordered_conditions(metrics):
+    for name in _ordered_conditions(metrics, order):
         m = metrics[name]
         lines.append(f"| {name} | {m.accuracy:.3f} | {m.correct} | {m.total} |")
 
     present = {c for row in run.results for c in row.get("predictions", {})}
-    pred_cols = [c for c in CONDITIONS if c in present] + sorted(
-        c for c in present if c not in CONDITIONS
-    )
+    pred_cols = [c for c in order if c in present] + sorted(c for c in present if c not in order)
     header_preds = " | ".join(pred_cols)
     header_judges = " | ".join(f"J:{c}" for c in pred_cols)
     sep_preds = " | ".join("---" for _ in pred_cols)

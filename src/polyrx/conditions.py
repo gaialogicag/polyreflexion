@@ -1,26 +1,41 @@
-"""Experimental conditions as data, not as six parallel dictionaries.
+"""Experimental conditions as data.
 
 A *condition* is one cell of the experiment grid: which backend produces the
 reasoning, how deep the reflexion tree goes, and how many meta cycles are
 allowed on top.  Everything else about a condition — its cache key, whether it
 needs a summary pass, which budget it continues from — is derived from those
-three numbers rather than looked up in yet another table.
+three numbers.
 
-Before this module the same information lived in ``CONDITIONS``,
-``BACKEND_BY_CONDITION``, ``DEPTH_BY_CONDITION``, ``META_CYCLES_BY_CONDITION``,
-``SUMMARY_KEY_BY_CONDITION`` and ``PRIOR_META_SUMMARY_KEY``.  Adding one
-condition meant editing five of them consistently.
+The grid itself is **not** in this file. It lives in ``conf/conditions/``, like
+every other setting, and is loaded into a :class:`ConditionRegistry`. This
+module only defines what a condition *is* and how its derived properties work.
+
+Two files, two jobs:
+
+* ``conf/conditions/*.yaml`` — the live grid. Edit it to add a condition.
+* ``data/conditions.lock.json`` — a frozen record of the grid the published
+  results were produced with, in the same spirit as ``data/MANIFEST.json`` for
+  datasets. :func:`check_against_lock` compares the two, because a changed
+  cache key does not crash: it silently orphans every cached summary.
 """
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any
 
 __all__ = [
-    "DEFAULT_CONDITIONS",
+    "LOCK_FILENAME",
     "Condition",
     "ConditionRegistry",
-    "default_registry",
+    "GridLockError",
+    "check_against_lock",
+    "registry_from_config",
+    "require_lock_match",
+    "write_lock",
 ]
 
 
@@ -185,111 +200,115 @@ class ConditionRegistry:
 
 
 # ---------------------------------------------------------------------------
-# Fidelity check against the pre-refactor lookup tables
+# Building a registry from configuration
 # ---------------------------------------------------------------------------
 
-#: The published grid exactly as the six dictionaries in the original
-#: ``benchmark/runner.py`` spelled it, recovered from commit c9a64a1.
-#:
-#: Each row is ``(backend, depth, meta_cycles, summary_key, prior_summary_key)``
-#: where ``None`` means the original table had no entry for that condition.
-#:
-#: This exists because the derivation in :class:`Condition` replaced those
-#: tables, and a derivation that is wrong by one character does not crash: it
-#: silently rebuilds summaries instead of reusing them, and lets a merge pair
-#: one condition's predictions with another condition's summaries. The failure
-#: is wrong numbers, not an error, so it has to be checked rather than noticed.
-_PUBLISHED_GRID: dict[str, tuple[str, int | None, int | None, str | None, str | None]] = {
-    "nano_direct": ("nano", None, None, None, None),
-    "nano_reflexion": ("nano", 1, None, "nano", None),
-    "nano_reflexion_d2": ("nano", 2, None, "nano_d2", None),
-    "nano_reflexion_d3": ("nano", 3, None, "nano_d3", None),
-    "nano_meta_c1": ("nano", 1, 1, "nano_meta_c1", None),
-    "nano_meta_c2": ("nano", 1, 2, "nano_meta_c2", "nano_meta_c1"),
-    "nano_meta_c3": ("nano", 1, 3, "nano_meta_c3", "nano_meta_c2"),
-    "nano_meta_c4": ("nano", 1, 4, "nano_meta_c4", "nano_meta_c3"),
-    # Legacy alias: the original tables gave it nano_meta_c2's budget and cache.
-    "nano_meta": ("nano", 1, 2, "nano_meta_c2", "nano_meta_c1"),
-    "phi_direct": ("phi", None, None, None, None),
-    "phi_reflexion": ("phi", 1, None, "phi", None),
-    "phi_reflexion_d2": ("phi", 2, None, "phi_d2", None),
-}
 
+def registry_from_config(conditions: Iterable[Any]) -> ConditionRegistry:
+    """Build a registry from the composed ``conditions`` config group.
 
-def check_published_grid(registry: ConditionRegistry) -> None:
-    """Raise if the derived grid no longer matches the published one.
-
-    Called when the default registry is built, so a change that would silently
-    orphan an existing summary cache fails at import instead of at the point
-    where the numbers come out wrong.
+    Accepts anything with the Condition fields as attributes or keys, so it
+    works with the structured config, a plain mapping, or Condition instances.
     """
+    specs: list[Condition] = []
+    for entry in conditions:
+        if isinstance(entry, Condition):
+            specs.append(entry)
+            continue
+
+        def get(key: str, default: Any = None, item: Any = entry) -> Any:
+            """Read a field whether the entry is a mapping or an object."""
+            return item.get(key, default) if isinstance(item, dict) else getattr(item, key, default)
+
+        name, backend = get("name"), get("backend")
+        if not name or not backend:
+            raise ValueError(
+                f"Condition entry needs both a name and a backend, got {entry!r}. "
+                f"Check conf/conditions/."
+            )
+        specs.append(
+            Condition(
+                name=str(name),
+                backend=str(backend),
+                depth=get("depth", 0) or 0,
+                meta_cycles=get("meta_cycles", 0) or 0,
+                alias_of=get("alias_of", None) or None,
+                note=get("note", "") or "",
+            )
+        )
+    return ConditionRegistry(specs)
+
+
+# ---------------------------------------------------------------------------
+# The grid lock
+# ---------------------------------------------------------------------------
+
+#: Default location of the lock, relative to the repository root.
+LOCK_FILENAME = "conditions.lock.json"
+
+#: Fields compared between the live grid and the lock. These are exactly the
+#: values that used to live in six parallel dictionaries, and every cached
+#: summary on disk is keyed by ``summary_key``.
+_LOCKED_FIELDS = ("backend", "depth", "meta_cycles", "summary_key", "prior_summary_key")
+
+
+class GridLockError(RuntimeError):
+    """The live condition grid no longer matches the locked one."""
+
+
+def _lock_row(condition: Condition) -> dict[str, Any]:
+    return {field: getattr(condition, field) for field in _LOCKED_FIELDS}
+
+
+def write_lock(registry: ConditionRegistry, path: Path) -> Path:
+    """Record the current grid as the reference for future runs."""
+    payload = {
+        "_comment": (
+            "The condition grid the published results were produced with. Every cached "
+            "summary is keyed by summary_key, so a change here orphans the cache. "
+            "Regenerate deliberately with: polyrx-conditions lock"
+        ),
+        "conditions": {name: _lock_row(registry.get(name)) for name in registry.names()},
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def check_against_lock(registry: ConditionRegistry, path: Path) -> list[str]:
+    """Return the differences between the live grid and the locked one.
+
+    An empty list means they agree. A missing lock file returns no differences:
+    a fresh checkout with no published results has nothing to protect yet.
+    """
+    if not path.is_file():
+        return []
+    locked = json.loads(path.read_text(encoding="utf-8")).get("conditions", {})
+
     problems: list[str] = []
-
-    missing = set(_PUBLISHED_GRID) - set(registry.names())
-    if missing:
-        problems.append(f"conditions dropped from the published grid: {sorted(missing)}")
-
-    for name, (backend, depth, cycles, summary_key, prior_key) in _PUBLISHED_GRID.items():
+    for name in sorted(set(locked) - set(registry.names())):
+        problems.append(f"{name}: in the lock but no longer in the grid")
+    for name, row in sorted(locked.items()):
         if name not in registry.names():
             continue
-        spec = registry.get(name)
-        # The old tables simply omitted direct conditions, so absent means 0.
-        for label, expected, actual in (
-            ("backend", backend, spec.backend),
-            ("depth", depth or 0, spec.depth),
-            ("meta_cycles", cycles or 0, spec.meta_cycles),
-            ("summary_key", summary_key or "", spec.summary_key),
-            ("prior_summary_key", prior_key, spec.prior_summary_key),
-        ):
-            if expected != actual:
-                problems.append(f"{name}.{label}: published {expected!r}, derived {actual!r}")
+        live = _lock_row(registry.get(name))
+        for field in _LOCKED_FIELDS:
+            if row.get(field) != live[field]:
+                problems.append(f"{name}.{field}: locked {row.get(field)!r}, now {live[field]!r}")
+    return problems
 
+
+def require_lock_match(registry: ConditionRegistry, path: Path) -> None:
+    """Raise unless the live grid matches the lock."""
+    problems = check_against_lock(registry, path)
     if problems:
-        raise AssertionError(
-            "The derived condition grid no longer matches the published one.\n"
+        raise GridLockError(
+            "The condition grid no longer matches "
+            + str(path)
+            + ":\n"
             + "\n".join(f"  - {p}" for p in problems)
-            + "\n\nEvery cached summary is keyed by summary_key, so a mismatch orphans "
-            "the cache and makes existing runs unmergeable. If the change is "
-            "deliberate, update _PUBLISHED_GRID in the same commit and say in the "
-            "message which published results it invalidates."
+            + "\n\nEvery cached summary is keyed by summary_key, so a mismatch orphans the "
+            "cache and makes existing runs unmergeable. If the change is deliberate, "
+            "re-lock with `polyrx-conditions lock` in the same commit and say which "
+            "published results it invalidates."
         )
-
-
-def _build_default() -> ConditionRegistry:
-    """The published condition grid.
-
-    Generated from the grid definition rather than written out, so a new meta
-    budget is one number, not five dictionary entries.
-    """
-    conditions: list[Condition] = [
-        Condition("nano_direct", backend="nano"),
-        Condition("nano_reflexion", backend="nano", depth=1),
-        Condition("nano_reflexion_d2", backend="nano", depth=2),
-        Condition("nano_reflexion_d3", backend="nano", depth=3),
-    ]
-    conditions += [
-        Condition(f"nano_meta_c{n}", backend="nano", depth=1, meta_cycles=n) for n in (1, 2, 3, 4)
-    ]
-    conditions += [
-        Condition(
-            "nano_meta",
-            backend="nano",
-            depth=1,
-            meta_cycles=2,
-            alias_of="nano_meta_c2",
-            note="Legacy alias kept for older result files.",
-        ),
-        Condition("phi_direct", backend="phi"),
-        Condition("phi_reflexion", backend="phi", depth=1),
-        Condition("phi_reflexion_d2", backend="phi", depth=2),
-    ]
-    registry = ConditionRegistry(conditions)
-    check_published_grid(registry)
-    return registry
-
-
-#: The registry the benchmarks use unless a caller supplies its own.
-default_registry = _build_default()
-
-#: Canonical display / run order, kept as plain strings for config files.
-DEFAULT_CONDITIONS: tuple[str, ...] = default_registry.names()

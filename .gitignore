@@ -2,6 +2,7 @@
 # data/MANIFEST.json is the exception: it records what was downloaded.
 data/*
 !data/MANIFEST.json
+!data/conditions.lock.json
 
 # Run outputs are not tracked in this repository. Published results live
 # wherever the paper does; this repo ships the method and the means to

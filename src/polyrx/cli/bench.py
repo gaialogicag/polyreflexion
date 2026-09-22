@@ -32,7 +32,13 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from polyrx.conditions import default_registry
+from polyrx.conditions import (
+    LOCK_FILENAME,
+    ConditionRegistry,
+    GridLockError,
+    registry_from_config,
+    require_lock_match,
+)
 from polyrx.conf_store import register
 from polyrx.config import RootConfig
 from polyrx.models.registry import set_active_backends
@@ -68,18 +74,35 @@ def _resolve_run_path(value: str, results_dir: Path, suite: str) -> Path:
     return candidates[-1]
 
 
-def _expand_conditions(names: list[str]) -> tuple[str, ...]:
+def _condition_registry(cfg: RootConfig) -> ConditionRegistry:
+    """Build the run's grid from config and check it against the lock.
+
+    The lock is what stops a quiet change to a condition's cache key from
+    orphaning every summary already on disk. ``conditions.enforce_lock=false``
+    skips the check, which is only correct while deliberately re-locking.
+    """
+    registry = registry_from_config(cfg.conditions.conditions)
+    if cfg.conditions.enforce_lock:
+        lock = cfg.paths.resolved("data_dir") / LOCK_FILENAME
+        try:
+            require_lock_match(registry, lock)
+        except GridLockError as exc:
+            raise SystemExit(str(exc)) from None
+    return registry
+
+
+def _expand_conditions(names: list[str], registry: ConditionRegistry) -> tuple[str, ...]:
     """Expand group shorthands (``nano``, ``nano_nod3``, ``all``) to real names."""
     expanded: list[str] = []
     for name in names:
-        if name in default_registry.names():
+        if name in registry.names():
             expanded.append(name)
             continue
-        group = default_registry.expand_group(name)
+        group = registry.expand_group(name)
         if not group:
             raise SystemExit(
                 f"Unknown condition or group {name!r}. "
-                f"Known conditions: {', '.join(default_registry.names())}"
+                f"Known conditions: {', '.join(registry.names())}"
             )
         expanded.extend(group)
     return tuple(dict.fromkeys(expanded))
@@ -157,7 +180,8 @@ def _run_opentom(cfg: RootConfig) -> int:
 
     exp = cfg.experiment
     results_dir = cfg.paths.resolved("results_dir")
-    conditions = _expand_conditions(list(exp.conditions))
+    registry = _condition_registry(cfg)
+    conditions = _expand_conditions(list(exp.conditions), registry)
 
     base = None
     exclude_ids: frozenset[str] = frozenset()
@@ -180,6 +204,7 @@ def _run_opentom(cfg: RootConfig) -> int:
         paths=cfg.paths,
         report=cfg.report,
         postprocess=cfg.postprocess,
+        condition_registry=registry,
     )
     run = run_benchmark(config)
     if base is not None:
@@ -219,7 +244,8 @@ def _run_gpqa(cfg: RootConfig) -> int:
 
     exp = cfg.experiment
     results_dir = cfg.paths.resolved("results_dir")
-    conditions = _expand_conditions(list(exp.conditions))
+    registry = _condition_registry(cfg)
+    conditions = _expand_conditions(list(exp.conditions), registry)
 
     base = None
     exclude_ids: frozenset[str] = frozenset()

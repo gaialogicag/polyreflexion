@@ -23,7 +23,7 @@ from polyrx.benchmark.opentom_loader import (
     load_items,
     sample_stories,
 )
-from polyrx.conditions import Condition, ConditionRegistry, default_registry
+from polyrx.conditions import Condition, ConditionRegistry
 from polyrx.config import PathsConfig, PostProcessConfig, PromptsConfig, ReportConfig
 from polyrx.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyrx.meta.prompts import MetaPromptRegistry
@@ -32,18 +32,20 @@ from polyrx.models.ollama import extract_final_answer, looks_degenerate
 from polyrx.models.registry import get_client
 from polyrx.provenance import Provenance
 
-# The condition grid lives in :mod:`polyrx.conditions`; this module only
-# resolves names against it.  Everything that used to be a lookup table
-# (backend, depth, meta budget, cache key, prior budget) is now a property of
-# :class:`~polyrx.conditions.Condition`.
-CONDITIONS: tuple[str, ...] = default_registry.names()
-
 
 def _registry(config: BenchmarkConfig | None = None) -> ConditionRegistry:
-    """Registry a run should resolve against (custom grids stay possible)."""
-    if config is not None and config.condition_registry is not None:
-        return config.condition_registry
-    return default_registry
+    """The grid a run resolves names against.
+
+    There is no module-level default: the grid is configuration, loaded from
+    ``conf/conditions`` into ``BenchmarkConfig.condition_registry``.
+    """
+    if config is None or config.condition_registry is None:
+        raise ValueError(
+            "No condition grid configured. Build one with "
+            "polyrx.conditions.registry_from_config(cfg.conditions.conditions) "
+            "and pass it as BenchmarkConfig.condition_registry."
+        )
+    return config.condition_registry
 
 
 def resolve(condition: str, config: BenchmarkConfig | None = None) -> Condition:
@@ -51,37 +53,14 @@ def resolve(condition: str, config: BenchmarkConfig | None = None) -> Condition:
     return _registry(config).get(condition)
 
 
-def is_reflexion_condition(condition: str) -> bool:
-    return resolve(condition).is_reflexion
-
-
-def uses_summary_condition(condition: str) -> bool:
+def uses_summary_condition(condition: str, config: BenchmarkConfig) -> bool:
     """Conditions that replace the item text with a pre-built summary."""
-    return resolve(condition).uses_summary
+    return resolve(condition, config).uses_summary
 
 
-def depth_for_condition(condition: str, default: int = 1) -> int:
-    """Reflexion max-depth for a condition (``default`` only for direct runs)."""
-    spec = resolve(condition)
-    return spec.depth or default
-
-
-def is_meta_condition(condition: str) -> bool:
-    return resolve(condition).is_meta
-
-
-def meta_cycles_for_condition(condition: str) -> int:
-    """Meta cycle budget for a condition; 0 when the meta layer is off."""
-    return resolve(condition).meta_cycles
-
-
-def summary_key_for_condition(condition: str) -> str:
+def summary_key_for_condition(condition: str, config: BenchmarkConfig) -> str:
     """Summary cache key; empty string for direct conditions."""
-    return resolve(condition).summary_key
-
-
-def backend_for_condition(condition: str) -> str:
-    return resolve(condition).backend
+    return resolve(condition, config).summary_key
 
 
 @dataclass
@@ -92,7 +71,7 @@ class BenchmarkConfig:
     seed: int = 42
     reflexion_depth: int = 1
     max_workers: int = 4
-    conditions: tuple[str, ...] = CONDITIONS
+    conditions: tuple[str, ...] = ()
     use_stub: bool = False
     # Isolates summary cache for fresh runs (e.g. "ot_v2"). Empty = legacy paths.
     cache_namespace: str = ""
@@ -195,8 +174,8 @@ def _answer_question(
     return extract_label(raw, item.label_space)
 
 
-def _backends_for_conditions(conditions: tuple[str, ...]) -> set[str]:
-    return {resolve(c).backend for c in conditions}
+def _backends_for_conditions(conditions: tuple[str, ...], config: BenchmarkConfig) -> set[str]:
+    return {resolve(c, config).backend for c in conditions}
 
 
 def _summary_cache_path(
@@ -229,7 +208,7 @@ def _build_summaries(
     # summary_key -> (backend, depth, meta_cycles or None)
     jobs: dict[str, tuple[str, int, int | None]] = {}
     for condition in config.conditions:
-        if not uses_summary_condition(condition):
+        if not uses_summary_condition(condition, config):
             continue
         spec = resolve(condition, config)
         depth = spec.depth or config.reflexion_depth
@@ -512,12 +491,12 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     for item in items:
         stories[item.story_id] = item.narrative
 
-    need_summaries = any(uses_summary_condition(c) for c in config.conditions)
+    need_summaries = any(uses_summary_condition(c, config) for c in config.conditions)
     summaries: dict[str, dict[str, str]] = {}
     if need_summaries:
         summaries = _build_summaries(stories, config, prompts)
 
-    needed_aliases = _backends_for_conditions(config.conditions) | {"judge"}
+    needed_aliases = _backends_for_conditions(config.conditions, config) | {"judge"}
     clients = {alias: _client(alias, config.use_stub) for alias in sorted(needed_aliases)}
     judge = OpenToMJudge(clients["judge"], prompts)
 
@@ -527,7 +506,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     def process(item: OpenToMItem, condition: str) -> tuple[str, str, dict]:
         backend = resolve(condition, config).backend
         client = clients[backend]
-        if uses_summary_condition(condition):
+        if uses_summary_condition(condition, config):
             context = summaries[item.story_id][resolve(condition, config).summary_key]
         else:
             context = item.narrative
@@ -592,7 +571,7 @@ def load_run(path: Path) -> BenchmarkRun:
         seed=cfg.get("seed", 42),
         reflexion_depth=cfg.get("reflexion_depth", 1),
         max_workers=cfg.get("max_workers", 4),
-        conditions=tuple(cfg.get("conditions", CONDITIONS)),
+        conditions=tuple(cfg.get("conditions", ())),
         use_stub=cfg.get("use_stub", False),
         cache_namespace=cfg.get("cache_namespace", ""),
         meta_prompt_profile=cfg.get("meta_prompt_profile", "default"),

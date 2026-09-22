@@ -160,8 +160,15 @@ those would let a value silently break the algorithm.
 
 A condition is one cell of the experiment grid: a backend, a reflexion depth,
 and a meta cycle budget. Everything else — cache key, whether a summary pass is
-needed, which budget it continues from — is derived from those three numbers in
-`polyrx/conditions.py`.
+needed, which budget it continues from — is derived from those three numbers.
+
+The grid is config, in `conf/conditions/`. `polyrx/conditions.py` defines only
+what a condition *is*.
+
+```bash
+polyrx-conditions show          # print the grid with its derived cache keys
+polyrx-bench conditions=nano_only
+```
 
 | Name | Backend | Depth | Meta cycles |
 |---|---|---|---|
@@ -177,8 +184,19 @@ needed, which budget it continues from — is derived from those three numbers i
 Group shorthands work on the command line: `nano` is every nano condition,
 `nano_nod3` is the same without the expensive depth-3 run, `all` is everything.
 
-Adding a condition is one `Condition(...)` entry. There is no lookup table to
-keep in sync.
+Adding a condition is one entry in `conf/conditions/published.yaml`. There is
+no lookup table to keep in sync.
+
+`data/conditions.lock.json` records the grid the published results were
+produced with, the same way `data/MANIFEST.json` records dataset revisions. A
+run compares the two and stops when they disagree, because every cached summary
+is keyed by a condition's `summary_key`: change one and the cache is orphaned
+silently rather than failing.
+
+```bash
+polyrx-conditions check         # compare the grid against the lock
+polyrx-conditions lock          # re-lock, deliberately
+```
 
 ## Backends
 

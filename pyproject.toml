@@ -65,6 +65,8 @@ polyrx-ask = "polyrx.cli.ask:main"
 polyrx-reflect = "polyrx.cli.reflect:main"
 # Pin dataset revisions and verify downloaded bytes.
 polyrx-manifest = "polyrx.cli.manifest:main"
+# Show the experiment grid, or lock it against accidental change.
+polyrx-conditions = "polyrx.cli.conditions:main"
 # Write judge traces beside summaries cached before traces were recorded.
 polyrx-backfill = "polyrx.cli.backfill:main"
 

@@ -1,0 +1,63 @@
+# The experiment grid. Each entry is one cell: a backend, a reflexion depth,
+# and a meta cycle budget. Everything else about a condition -- its summary
+# cache key, whether it needs a summary pass, which budget it continues from --
+# is derived from those three numbers in polyrx/conditions.py.
+#
+# Order is report column order.
+#
+# Adding a condition is one entry here. Changing an existing one changes its
+# cache key, which orphans every summary already on disk: re-lock with
+# `polyrx-conditions lock` and say which published results it invalidates.
+
+defaults:
+  - base_conditions
+
+# depth 0 means the model answers the item directly, with no reflexion pass.
+# meta_cycles 0 disables the meta layer. A meta condition runs a depth-1
+# reflexion on cycle 0, which is why they all carry depth 1.
+conditions:
+  - name: nano_direct
+    backend: nano
+
+  - name: nano_reflexion
+    backend: nano
+    depth: 1
+  - name: nano_reflexion_d2
+    backend: nano
+    depth: 2
+  - name: nano_reflexion_d3
+    backend: nano
+    depth: 3
+
+  - name: nano_meta_c1
+    backend: nano
+    depth: 1
+    meta_cycles: 1
+  - name: nano_meta_c2
+    backend: nano
+    depth: 1
+    meta_cycles: 2
+  - name: nano_meta_c3
+    backend: nano
+    depth: 1
+    meta_cycles: 3
+  - name: nano_meta_c4
+    backend: nano
+    depth: 1
+    meta_cycles: 4
+
+  - name: nano_meta
+    backend: nano
+    depth: 1
+    meta_cycles: 2
+    alias_of: nano_meta_c2
+    note: Legacy alias kept for older result files.
+
+  - name: phi_direct
+    backend: phi
+  - name: phi_reflexion
+    backend: phi
+    depth: 1
+  - name: phi_reflexion_d2
+    backend: phi
+    depth: 2

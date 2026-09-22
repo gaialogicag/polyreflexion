@@ -12,6 +12,7 @@ defaults:
   - base_config
   - backends: openai
   - dataset: opentom
+  - conditions: published
   - engine: default
   - prompts/reflexion: default
   - prompts/meta: default

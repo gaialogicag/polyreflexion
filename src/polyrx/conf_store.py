@@ -12,6 +12,7 @@ from hydra.core.config_store import ConfigStore
 
 from polyrx.config import (
     BackendsConfig,
+    ConditionsConfig,
     DatasetConfig,
     EngineConfig,
     ExperimentConfig,
@@ -38,6 +39,7 @@ def register() -> ConfigStore:
     cs.store(group="paths", name="base_paths", node=PathsConfig)
     # Prompt sets are nested groups, so their schemas are registered under the
     # same group paths the YAML files live in.
+    cs.store(group="conditions", name="base_conditions", node=ConditionsConfig)
     cs.store(group="postprocess", name="base_postprocess", node=PostProcessConfig)
     cs.store(group="report", name="base_report", node=ReportConfig)
     cs.store(group="provenance", name="base_provenance", node=ProvenanceConfig)

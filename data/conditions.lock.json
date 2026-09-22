@@ -1,0 +1,89 @@
+{
+  "_comment": "The condition grid the published results were produced with. Every cached summary is keyed by summary_key, so a change here orphans the cache. Regenerate deliberately with: polyrx-conditions lock",
+  "conditions": {
+    "nano_direct": {
+      "backend": "nano",
+      "depth": 0,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": ""
+    },
+    "nano_meta": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 2,
+      "prior_summary_key": "nano_meta_c1",
+      "summary_key": "nano_meta_c2"
+    },
+    "nano_meta_c1": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 1,
+      "prior_summary_key": null,
+      "summary_key": "nano_meta_c1"
+    },
+    "nano_meta_c2": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 2,
+      "prior_summary_key": "nano_meta_c1",
+      "summary_key": "nano_meta_c2"
+    },
+    "nano_meta_c3": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 3,
+      "prior_summary_key": "nano_meta_c2",
+      "summary_key": "nano_meta_c3"
+    },
+    "nano_meta_c4": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 4,
+      "prior_summary_key": "nano_meta_c3",
+      "summary_key": "nano_meta_c4"
+    },
+    "nano_reflexion": {
+      "backend": "nano",
+      "depth": 1,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "nano"
+    },
+    "nano_reflexion_d2": {
+      "backend": "nano",
+      "depth": 2,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "nano_d2"
+    },
+    "nano_reflexion_d3": {
+      "backend": "nano",
+      "depth": 3,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "nano_d3"
+    },
+    "phi_direct": {
+      "backend": "phi",
+      "depth": 0,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": ""
+    },
+    "phi_reflexion": {
+      "backend": "phi",
+      "depth": 1,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "phi"
+    },
+    "phi_reflexion_d2": {
+      "backend": "phi",
+      "depth": 2,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "phi_d2"
+    }
+  }
+}

@@ -467,7 +467,7 @@ def write_detailed_report(
             ]
         )
         for cond in meta_conds_for_attr:
-            summary_key = summary_key_for_condition(cond)
+            summary_key = summary_key_for_condition(cond, run.config)
             if not summary_key:
                 continue
             traces = load_meta_traces_for_run(run, summary_key)

@@ -60,9 +60,17 @@ the code.
 
 ## Adding a condition
 
-Add one `Condition(...)` in `polyrx/conditions.py`. Cache key, prior
-budget, summary behaviour and report ordering follow from it. Do not add a
-lookup table.
+Add one entry to `conf/conditions/published.yaml`. Cache key, prior budget,
+summary behaviour and report ordering follow from it. Do not add a lookup
+table, and do not put the grid back into Python.
+
+Then re-lock and say in the pull request which published results the change
+invalidates:
+
+```bash
+polyrx-conditions check
+polyrx-conditions lock
+```
 
 ## Changing a dataset revision
 

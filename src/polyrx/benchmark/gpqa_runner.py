@@ -18,7 +18,6 @@ from polyrx.benchmark.gpqa_loader import (
     sample_questions,
 )
 from polyrx.benchmark.runner import (
-    CONDITIONS,
     BenchmarkConfig,
     BenchmarkRun,
     _backends_for_conditions,
@@ -28,6 +27,7 @@ from polyrx.benchmark.runner import (
     unique_stamp,
     uses_summary_condition,
 )
+from polyrx.conditions import ConditionRegistry
 from polyrx.config import PathsConfig, PromptsConfig, ReportConfig
 from polyrx.engine import PromptRegistry
 from polyrx.models.base import LLMClient
@@ -42,7 +42,7 @@ class GPQABenchmarkConfig:
     seed: int = 42
     reflexion_depth: int = 1
     max_workers: int = 4
-    conditions: tuple[str, ...] = CONDITIONS
+    conditions: tuple[str, ...] = ()
     use_stub: bool = False
     cache_namespace: str = ""
     # Default GPQA meta profile (scientific reasoning judges / boundaries).
@@ -54,6 +54,8 @@ class GPQABenchmarkConfig:
     fixed_question_ids: frozenset[str] = frozenset()
     # Where results, caches and datasets live.
     paths: PathsConfig = field(default_factory=PathsConfig)
+    # The experiment grid this run resolves condition names against.
+    condition_registry: ConditionRegistry | None = None
     # Presentation settings (chart sizes, truncation, progress interval).
     report: ReportConfig = field(default_factory=ReportConfig)
 
@@ -85,6 +87,7 @@ def _to_shared_config(config: GPQABenchmarkConfig) -> BenchmarkConfig:
         paths=config.paths,
         prompts=config.prompts,
         report=config.report,
+        condition_registry=config.condition_registry,
     )
 
 
@@ -128,12 +131,13 @@ def run_benchmark(config: GPQABenchmarkConfig) -> GPQABenchmarkRun:
     # One "story" per question: reflexion summarizes the full MCQ prompt.
     problems: dict[str, str] = {item.question_id: item.prompt_text for item in items}
 
-    need_summaries = any(uses_summary_condition(c) for c in config.conditions)
+    shared = _to_shared_config(config)
+    need_summaries = any(uses_summary_condition(c, shared) for c in config.conditions)
     summaries: dict[str, dict[str, str]] = {}
     if need_summaries:
-        summaries = _build_summaries(problems, _to_shared_config(config), prompts)
+        summaries = _build_summaries(problems, shared, prompts)
 
-    needed_aliases = _backends_for_conditions(config.conditions) | {"judge"}
+    needed_aliases = _backends_for_conditions(config.conditions, shared) | {"judge"}
     clients = {alias: _client(alias, config.use_stub) for alias in sorted(needed_aliases)}
     judge = GPQAJudge(clients["judge"], prompts)
 
@@ -141,10 +145,10 @@ def run_benchmark(config: GPQABenchmarkConfig) -> GPQABenchmarkRun:
     results_by_key: dict[tuple[str, str], dict] = {}
 
     def process(item: GPQAItem, condition: str) -> tuple[str, str, dict]:
-        backend = resolve(condition).backend
+        backend = resolve(condition, shared).backend
         client = clients[backend]
-        if uses_summary_condition(condition):
-            context = summaries[item.question_id][resolve(condition).summary_key]
+        if uses_summary_condition(condition, shared):
+            context = summaries[item.question_id][resolve(condition, shared).summary_key]
         else:
             context = item.prompt_text
         prediction = _answer_question(client, prompts, context=context, item=item)
@@ -213,7 +217,7 @@ def load_run(path: Path) -> GPQABenchmarkRun:
         seed=cfg.get("seed", 42),
         reflexion_depth=cfg.get("reflexion_depth", 1),
         max_workers=cfg.get("max_workers", 4),
-        conditions=tuple(cfg.get("conditions", CONDITIONS)),
+        conditions=tuple(cfg.get("conditions", ())),
         use_stub=cfg.get("use_stub", False),
         cache_namespace=cfg.get("cache_namespace", ""),
         meta_prompt_profile=cfg.get("meta_prompt_profile", "gpqa"),
@@ -337,7 +341,8 @@ def drop_conditions(
     if not conditions:
         return run
     # Direct conditions have no summary, so their empty key is filtered out.
-    summary_keys = {key for c in conditions if (key := resolve(c).summary_key)}
+    shared = _to_shared_config(run.config)
+    summary_keys = {key for c in conditions if (key := resolve(c, shared).summary_key)}
     for row in run.results:
         for cond in conditions:
             row.get("predictions", {}).pop(cond, None)

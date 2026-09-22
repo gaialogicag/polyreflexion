@@ -378,6 +378,38 @@ class ProvenanceConfig:
 
 
 # ---------------------------------------------------------------------------
+# The experiment grid
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ConditionSpec:
+    """One cell of the experiment grid, as it appears in ``conf/conditions``."""
+
+    name: str = "?"
+    backend: str = "nano"
+    #: Reflexion tree depth. ``0`` answers the item with no reflexion pass.
+    depth: int = 0
+    #: Meta loop budget. ``0`` disables the meta layer. A meta condition runs a
+    #: depth-1 reflexion on cycle 0, so it carries ``depth >= 1``.
+    meta_cycles: int = 0
+    #: Retired name kept working for a release; points at its replacement.
+    alias_of: str | None = None
+    note: str = ""
+
+
+@dataclass
+class ConditionsConfig:
+    """The whole grid. Order here is report column order."""
+
+    conditions: list[ConditionSpec] = field(default_factory=list)
+    #: Fail a run when the grid no longer matches ``data/conditions.lock.json``.
+    #: Turning this off lets a run produce numbers that cannot be compared with
+    #: any previous one, so leave it on unless you are re-locking deliberately.
+    enforce_lock: bool = True
+
+
+# ---------------------------------------------------------------------------
 # Experiment
 # ---------------------------------------------------------------------------
 
@@ -422,6 +454,7 @@ class RootConfig:
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
     prompts: PromptsConfig = field(default_factory=PromptsConfig)
+    conditions: ConditionsConfig = field(default_factory=ConditionsConfig)
     postprocess: PostProcessConfig = field(default_factory=PostProcessConfig)
     report: ReportConfig = field(default_factory=ReportConfig)
     provenance: ProvenanceConfig = field(default_factory=ProvenanceConfig)
