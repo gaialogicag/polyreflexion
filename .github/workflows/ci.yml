@@ -86,7 +86,7 @@ jobs:
           leaked = [n for n in names if "/conf/" in n or "/prompts/" in n]
           if leaked:
               sys.exit(f"configuration must not be packaged: {leaked[:5]}")
-          if not any(n.endswith("polyreflexion/engine.py") for n in names):
+          if not any(n.endswith("polyrx/engine.py") for n in names):
               sys.exit("wheel does not contain the package")
           print(f"{wheel}: code packaged, configuration correctly absent")
           PY

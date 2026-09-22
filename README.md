@@ -131,7 +131,7 @@ Changing a template invalidates cached summaries: bump
 A condition is one cell of the experiment grid: a backend, a reflexion depth,
 and a meta cycle budget. Everything else — cache key, whether a summary pass is
 needed, which budget it continues from — is derived from those three numbers in
-`polyreflexion/conditions.py`.
+`polyrx/conditions.py`.
 
 | Name | Backend | Depth | Meta cycles |
 |---|---|---|---|
@@ -214,17 +214,17 @@ the old prompt.
 | Path | Role |
 |---|---|
 | `conf/` | Hydra config tree, including all prompt templates (not packaged) |
-| `polyreflexion/engine.py` | `ReflexionEngine` — the recursive tree and its parallel pools |
-| `polyreflexion/conditions.py` | The experiment grid as data |
-| `polyreflexion/config.py` | Every configurable knob, as typed dataclasses |
-| `polyreflexion/meta/` | Judges, interpretation, geometry, strategy, controller, trace, rendering |
-| `polyreflexion/config.py` (prompt dataclasses) | Schema the prompt YAML is checked against |
-| `polyreflexion/models/` | LLM clients and the role registry |
-| `polyreflexion/benchmark/` | OpenToM and GPQA loaders, runners, judges, metrics, reports |
-| `polyreflexion/data/` | Pinned, checksum-verified dataset fetching |
-| `polyreflexion/provenance.py` | What a reader needs to reproduce a run |
-| `polyreflexion/charts.py` | Optional matplotlib access; charts are skipped, never fatal |
-| `polyreflexion/cli/` | Console entry points |
+| `polyrx/engine.py` | `ReflexionEngine` — the recursive tree and its parallel pools |
+| `polyrx/conditions.py` | The experiment grid as data |
+| `polyrx/config.py` | Every configurable knob, as typed dataclasses |
+| `polyrx/meta/` | Judges, interpretation, geometry, strategy, controller, trace, rendering |
+| `polyrx/config.py` (prompt dataclasses) | Schema the prompt YAML is checked against |
+| `polyrx/models/` | LLM clients and the role registry |
+| `polyrx/benchmark/` | OpenToM and GPQA loaders, runners, judges, metrics, reports |
+| `polyrx/data/` | Pinned, checksum-verified dataset fetching |
+| `polyrx/provenance.py` | What a reader needs to reproduce a run |
+| `polyrx/charts.py` | Optional matplotlib access; charts are skipped, never fatal |
+| `polyrx/cli/` | Console entry points |
 
 ## Citing
 

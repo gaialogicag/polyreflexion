@@ -3,6 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
+# Distribution name. The import name is `polyrx`, matching the console scripts.
 name = "polyreflexion"
 version = "0.1.0"
 description = "Recursive Sierpinski reflexion with a polycontextural meta layer, and the OpenToM / GPQA benchmarks that measure it"
@@ -57,18 +58,18 @@ Issues = "https://github.com/gaialogicag/polyreflexion/issues"
 
 [project.scripts]
 # The one entry point that produces publishable numbers.
-polyrx-bench = "polyreflexion.cli.bench:main"
+polyrx-bench = "polyrx.cli.bench:main"
 # Interactive: baseline reflexion beside meta reflexion for a single question.
-polyrx-ask = "polyreflexion.cli.ask:main"
+polyrx-ask = "polyrx.cli.ask:main"
 # One meta-guided reflexion run with trace and topology renderings.
-polyrx-reflect = "polyreflexion.cli.reflect:main"
+polyrx-reflect = "polyrx.cli.reflect:main"
 # Pin dataset revisions and verify downloaded bytes.
-polyrx-manifest = "polyreflexion.cli.manifest:main"
+polyrx-manifest = "polyrx.cli.manifest:main"
 # Write judge traces beside summaries cached before traces were recorded.
-polyrx-backfill = "polyreflexion.cli.backfill:main"
+polyrx-backfill = "polyrx.cli.backfill:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/polyreflexion"]
+packages = ["src/polyrx"]
 
 # Neither the config tree nor the prompt templates ship in the wheel: both are
 # configuration, and both live at the repository root where they can be read
@@ -76,7 +77,7 @@ packages = ["src/polyreflexion"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/polyreflexion",
+    "src/polyrx",
     "conf",
     "README.md",
     "LICENSE",
@@ -111,11 +112,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["polyreflexion"]
+known-first-party = ["polyrx"]
 
 [tool.mypy]
 python_version = "3.11"
-packages = ["polyreflexion"]
+packages = ["polyrx"]
 mypy_path = "src"
 ignore_missing_imports = true
 warn_unused_ignores = true

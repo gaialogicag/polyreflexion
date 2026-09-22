@@ -21,7 +21,7 @@ polyrx-bench experiment=smoke
 These are enforced in review, and mirrored in `.cursor/rules/` for Cursor users.
 
 1. **Configuration lives in `conf/` at the repository root, not in code.** No
-   `os.environ.get` outside `polyreflexion/config.py`. The one exception is
+   `os.environ.get` outside `polyrx/config.py`. The one exception is
    reading an API key by the variable name the config gives.
    An experiment config carries `# @package _global_` and is composed last, so
    it can override any group; a group config composes onto its schema
@@ -60,7 +60,7 @@ the code.
 
 ## Adding a condition
 
-Add one `Condition(...)` in `polyreflexion/conditions.py`. Cache key, prior
+Add one `Condition(...)` in `polyrx/conditions.py`. Cache key, prior
 budget, summary behaviour and report ordering follow from it. Do not add a
 lookup table.
 
