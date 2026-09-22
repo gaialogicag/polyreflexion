@@ -35,8 +35,9 @@ class OpenToMItem:
     plot_info: dict
 
 
-def _story_id(narrative: str) -> str:
-    return hashlib.sha256(narrative.encode()).hexdigest()[:12]
+def _story_id(narrative: str, id_chars: int = DatasetConfig().id_hash_chars) -> str:
+    """Content hash identifying a story across runs and caches."""
+    return hashlib.sha256(narrative.encode()).hexdigest()[:id_chars]
 
 
 def infer_label_space(question: str, question_type: str, plot_info: dict) -> str:

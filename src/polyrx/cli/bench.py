@@ -178,6 +178,8 @@ def _run_opentom(cfg: RootConfig) -> int:
         prompts=cfg.prompts,
         exclude_story_ids=exclude_ids,
         paths=cfg.paths,
+        report=cfg.report,
+        postprocess=cfg.postprocess,
     )
     run = run_benchmark(config)
     if base is not None:
@@ -188,6 +190,7 @@ def _run_opentom(cfg: RootConfig) -> int:
     run.provenance = Provenance.collect(
         models=_model_info(cfg),
         prompts=cfg.prompts,
+        config=cfg.provenance,
     )
     json_path, report_path = save_run(run, results_dir)
     write_report(run, report_path)
@@ -242,6 +245,7 @@ def _run_gpqa(cfg: RootConfig) -> int:
         exclude_question_ids=exclude_ids,
         fixed_question_ids=fixed_ids,
         paths=cfg.paths,
+        report=cfg.report,
     )
     run = run_benchmark(config)
     if base is not None:
@@ -253,6 +257,7 @@ def _run_gpqa(cfg: RootConfig) -> int:
     run.provenance = Provenance.collect(
         models=_model_info(cfg),
         prompts=cfg.prompts,
+        config=cfg.provenance,
     )
     json_path, report_path = save_run(run, results_dir)
     write_report(run, report_path)
@@ -284,7 +289,7 @@ def _main(cfg: DictConfig) -> int:
     """Compose the config, install the backends, run the requested suite."""
     typed: RootConfig = OmegaConf.to_object(cfg)  # type: ignore[assignment]
     _require_credentials(typed)
-    set_active_backends(typed.backends)
+    set_active_backends(typed.backends, typed.postprocess)
 
     runner = _SUITES.get(typed.experiment.suite)
     if runner is None:

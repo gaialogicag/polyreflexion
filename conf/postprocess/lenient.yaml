@@ -1,0 +1,11 @@
+# Accept generations the default set would reject. Useful when a backend is
+# verbose or numeric by nature and the default heuristics fire too often.
+
+defaults:
+  - base_postprocess
+  - default
+
+degeneracy:
+  min_chars: 10
+  max_digit_ratio: 0.35
+  min_marker_hits: 3

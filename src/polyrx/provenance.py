@@ -20,17 +20,15 @@ from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from polyrx import __version__
-
-#: Packages whose version can change a result. Kept short on purpose — a full
-#: ``pip freeze`` buries the three that matter.
-_TRACKED_PACKAGES = ("openai", "huggingface_hub", "hydra-core", "omegaconf")
+from polyrx.config import ProvenanceConfig
 
 
-def file_sha256(path: Path) -> str:
+def file_sha256(path: Path, config: ProvenanceConfig | None = None) -> str:
     """Stream a file through sha256; works on datasets too large to hold in RAM."""
+    config = config or ProvenanceConfig()
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
+        for chunk in iter(lambda: handle.read(config.hash_chunk_bytes), b""):
             digest.update(chunk)
     return digest.hexdigest()
 
@@ -57,7 +55,7 @@ def _hash_templates(prompts: object, prefix: str = "") -> dict[str, str]:
     return out
 
 
-def _git(*args: str) -> str | None:
+def _git(*args: str, timeout: int = ProvenanceConfig().git_timeout_s) -> str | None:
     """Run a git command in the package's repository, or return ``None``.
 
     Returns ``None`` for an installed wheel, a tarball download, or any
@@ -69,7 +67,7 @@ def _git(*args: str) -> str | None:
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=timeout,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
@@ -88,14 +86,15 @@ class GitInfo:
     dirty: bool = False
 
     @classmethod
-    def collect(cls) -> GitInfo:
-        commit = _git("rev-parse", "HEAD")
+    def collect(cls, config: ProvenanceConfig | None = None) -> GitInfo:
+        timeout = (config or ProvenanceConfig()).git_timeout_s
+        commit = _git("rev-parse", "HEAD", timeout=timeout)
         if commit is None:
             return cls()
         return cls(
             commit=commit,
-            branch=_git("rev-parse", "--abbrev-ref", "HEAD"),
-            dirty=bool(_git("status", "--porcelain")),
+            branch=_git("rev-parse", "--abbrev-ref", "HEAD", timeout=timeout),
+            dirty=bool(_git("status", "--porcelain", timeout=timeout)),
         )
 
 
@@ -160,6 +159,7 @@ class Provenance:
         models: list[ModelInfo] | None = None,
         datasets: list[DatasetInfo] | None = None,
         prompts: object | None = None,
+        config: ProvenanceConfig | None = None,
     ) -> Provenance:
         """Gather everything available in this process.
 
@@ -167,14 +167,15 @@ class Provenance:
         Each template is hashed on its own, so comparing two runs names the
         template that changed rather than only reporting that the set differs.
         """
+        config = config or ProvenanceConfig()
         packages: dict[str, str] = {}
-        for name in _TRACKED_PACKAGES:
+        for name in config.tracked_packages:
             try:
                 packages[name] = _pkg_version(name)
             except PackageNotFoundError:
                 continue
         return cls(
-            git=GitInfo.collect(),
+            git=GitInfo.collect(config),
             packages=packages,
             models=models or [],
             datasets=datasets or [],
@@ -184,14 +185,15 @@ class Provenance:
     def to_dict(self) -> dict:
         return asdict(self)
 
-    def warnings(self) -> list[str]:
+    def warnings(self, config: ProvenanceConfig | None = None) -> list[str]:
         """Reasons this run is not exactly reproducible, in plain sentences."""
+        short = (config or ProvenanceConfig()).short_hash_chars
         issues: list[str] = []
         if self.git.commit is None:
             issues.append("No git commit recorded — the code version is unknown.")
         elif self.git.dirty:
             issues.append(
-                f"Working tree was dirty at {self.git.commit[:8]} — "
+                f"Working tree was dirty at {self.git.commit[:short]} — "
                 "the commit does not describe the code that ran."
             )
         for dataset in self.datasets:

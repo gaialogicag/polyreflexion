@@ -126,6 +126,36 @@ names the template that changed rather than only saying the set differs.
 Changing a template invalidates cached summaries: bump
 `experiment.cache_namespace` when you edit one.
 
+## Other settings
+
+Every tunable is a config group; nothing that changes behaviour is a literal in
+the source.
+
+| Group | What it holds |
+|---|---|
+| `postprocess` | When a generation counts as collapsed and gets retried, and how a final answer is pulled out of reasoning text. **These change scores.** `postprocess=lenient` loosens them |
+| `report` | Chart sizes, table truncation, row caps, progress interval. Presentation only |
+| `provenance` | Which package versions are recorded, git subprocess timeout, hash chunk size |
+| `engine` | Worker pool size and cap, default tree depth |
+| `dataset` | Hub source and revision, plus the hash lengths that form item ids |
+
+```bash
+polyrx-bench postprocess=lenient                     # accept more generations
+polyrx-bench report.progress_every=50                # quieter output
+polyrx-bench postprocess.degeneracy.max_digit_ratio=0.3
+```
+
+Two caveats. `postprocess` decides which summaries get a second attempt, so
+changing it changes published numbers — bump `experiment.cache_namespace` with
+it. And `dataset.id_hash_chars` is a data format rather than a knob: changing
+it renames every item, invalidating every cached summary and making saved runs
+unmergeable.
+
+A few numbers are deliberately *not* configurable, because they are structure
+rather than settings: the three-way branching of the Sierpinski tree, the
+brace-depth counter in the `\boxed{}` parser, console rule widths. Exposing
+those would let a value silently break the algorithm.
+
 ## Conditions
 
 A condition is one cell of the experiment grid: a backend, a reflexion depth,

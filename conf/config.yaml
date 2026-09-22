@@ -17,6 +17,9 @@ defaults:
   - prompts/meta: default
   - meta: default
   - paths: default
+  - postprocess: default
+  - report: default
+  - provenance: default
   - _self_
   # Last on purpose: an experiment is a global patch, so it has to be composed
   # after the groups it overrides.

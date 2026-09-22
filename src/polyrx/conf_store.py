@@ -18,7 +18,10 @@ from polyrx.config import (
     MetaLayerConfig,
     MetaPrompts,
     PathsConfig,
+    PostProcessConfig,
+    ProvenanceConfig,
     ReflexionPrompts,
+    ReportConfig,
     RootConfig,
 )
 
@@ -35,6 +38,9 @@ def register() -> ConfigStore:
     cs.store(group="paths", name="base_paths", node=PathsConfig)
     # Prompt sets are nested groups, so their schemas are registered under the
     # same group paths the YAML files live in.
+    cs.store(group="postprocess", name="base_postprocess", node=PostProcessConfig)
+    cs.store(group="report", name="base_report", node=ReportConfig)
+    cs.store(group="provenance", name="base_provenance", node=ProvenanceConfig)
     cs.store(group="prompts/reflexion", name="base_reflexion_prompts", node=ReflexionPrompts)
     cs.store(group="prompts/meta", name="base_meta_prompts", node=MetaPrompts)
     return cs

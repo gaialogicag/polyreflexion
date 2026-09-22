@@ -33,6 +33,7 @@ from polyrx.benchmark.runner import (
     load_meta_traces_for_run,
     summary_key_for_condition,
 )
+from polyrx.config import ReportConfig
 
 
 def _pairwise_vs_direct(results: list[dict], condition: str) -> dict[str, int]:
@@ -90,7 +91,7 @@ def _flip_type_breakdown(records: list[FlipRecord]) -> list[str]:
     return [f"- `{qtype}`: {count}" for qtype, count in by_type.most_common()]
 
 
-def _flip_examples_table(records: list[FlipRecord], *, max_rows: int = 12) -> list[str]:
+def _flip_examples_table(records: list[FlipRecord], *, report: ReportConfig) -> list[str]:
     """Compact table of individual flip examples."""
     if not records:
         return ["*(none)*", ""]
@@ -98,20 +99,20 @@ def _flip_examples_table(records: list[FlipRecord], *, max_rows: int = 12) -> li
         "| Story | Type | Gold | Baseline | Condition | Question |",
         "|-------|------|------|----------|-----------|----------|",
     ]
-    for rec in records[:max_rows]:
+    for rec in records[: report.max_flip_examples]:
         lines.append(
-            f"| {rec.story_id[:8]} | {rec.question_type} | {rec.gold_label} | "
+            f"| {rec.story_id[: report.id_display_chars]} | {rec.question_type} | {rec.gold_label} | "
             f"{rec.baseline_pred} | {rec.condition_pred} | "
-            f"{_escape_cell(rec.question, 60)} |"
+            f"{_escape_cell(rec.question, report.flip_question_chars)} |"
         )
-    if len(records) > max_rows:
+    if len(records) > report.max_flip_examples:
         lines.append("")
-        lines.append(f"*…and {len(records) - max_rows} more.*")
+        lines.append(f"*…and {len(records) - report.max_flip_examples} more.*")
     lines.append("")
     return lines
 
 
-def _render_flip_section(flip: FlipSummary, *, max_examples: int = 12) -> list[str]:
+def _render_flip_section(flip: FlipSummary, *, report: ReportConfig) -> list[str]:
     """Markdown for one condition's gain/loss breakdown."""
     lines = [
         f"### `{flip.condition}` vs `{flip.baseline}` "
@@ -122,13 +123,13 @@ def _render_flip_section(flip: FlipSummary, *, max_examples: int = 12) -> list[s
         "By question type:",
         *_flip_type_breakdown(flip.gains),
         "",
-        *_flip_examples_table(flip.gains, max_rows=max_examples),
+        *_flip_examples_table(flip.gains, report=report),
         "#### Right → wrong",
         "",
         "By question type:",
         *_flip_type_breakdown(flip.losses),
         "",
-        *_flip_examples_table(flip.losses, max_rows=max_examples),
+        *_flip_examples_table(flip.losses, report=report),
     ]
     return lines
 
@@ -211,7 +212,7 @@ def _render_marker_section(
     patterns: tuple,
     reflexion_key: str = REFLEXION_SUMMARY_KEY,
     meta_keys: tuple[str, ...] = META_SUMMARY_KEYS,
-    max_examples: int = 8,
+    report: ReportConfig,
 ) -> list[str]:
     story_count = len(summaries)
     lines = [
@@ -248,10 +249,12 @@ def _render_marker_section(
             continue
         lines.append(f"**{meta_key}** ({len(added)} stories):")
         lines.append("")
-        for hit in added[:max_examples]:
-            lines.append(f"- `{hit.story_id[:8]}` — {_escape_cell(hit.excerpt, 100)}")
-        if len(added) > max_examples:
-            lines.append(f"- *…and {len(added) - max_examples} more.*")
+        for hit in added[: report.max_marker_examples]:
+            lines.append(
+                f"- `{hit.story_id[: report.id_display_chars]}` — {_escape_cell(hit.excerpt, report.excerpt_chars)}"
+            )
+        if len(added) > report.max_marker_examples:
+            lines.append(f"- *…and {len(added) - report.max_marker_examples} more.*")
         lines.append("")
     return lines
 
@@ -261,13 +264,17 @@ def write_detailed_report(
     report_path: Path,
     *,
     baseline: str = "nano_direct",
+    report: ReportConfig | None = None,
 ) -> Path:
     """Write standard report plus a detailed analysis markdown file."""
+    # Presentation settings travel on the run, so a report regenerated later
+    # looks the same as the one the run produced.
+    report = report or getattr(run.config, "report", None) or ReportConfig()
     # Standard charts + summary table land alongside the detailed doc.
     summary_path = report_path.with_name(
         report_path.name.replace("opentom_detailed_", "opentom_report_")
     )
-    write_report(run, summary_path)
+    write_report(run, summary_path, report)
 
     metrics = compute_metrics(run.results)
     conditions = [c for c in run.config.conditions if c in metrics]
@@ -388,7 +395,7 @@ def write_detailed_report(
         # Meta first, then reflexion variants.
         for cond in meta_conds + reflex_conds:
             flip = collect_flips(run.results, baseline=baseline, condition=cond)
-            lines.extend(_render_flip_section(flip))
+            lines.extend(_render_flip_section(flip, report=report))
 
     if baseline in metrics and compare_conditions and run.summaries:
         lines.extend(["", "## Does meta reduce ToM inference errors?", ""])
@@ -415,6 +422,7 @@ def write_detailed_report(
                 run.summaries,
                 title="False-belief markers",
                 patterns=FALSE_BELIEF_PATTERNS,
+                report=report,
             )
         )
 
@@ -434,6 +442,7 @@ def write_detailed_report(
                 run.summaries,
                 title="Contradiction / tension markers",
                 patterns=CONTRADICTION_PATTERNS,
+                report=report,
             )
         )
 
@@ -514,7 +523,7 @@ def write_detailed_report(
                 lines.append("|-------|--------:|-------------|-------------|---------------|")
                 for ex in attr.example_trajectories:
                     lines.append(
-                        f"| {ex['story_id'][:8]} | {ex['repaired_count']} | "
+                        f"| {ex['story_id'][: report.id_display_chars]} | {ex['repaired_count']} | "
                         f"{ex['trajectory']} | {ex['termination']} | {ex['repair_dims']} |"
                     )
                 lines.append("")

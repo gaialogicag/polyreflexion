@@ -1,0 +1,21 @@
+# What the run record gathers about its own environment.
+
+defaults:
+  - base_provenance
+
+# Packages whose version can change a result. A full `pip freeze` would bury
+# the handful that matter.
+tracked_packages:
+  - openai
+  - huggingface_hub
+  - hydra-core
+  - omegaconf
+
+# Provenance must never be the reason a run hangs.
+git_timeout_s: 5
+
+# Characters of a commit or dataset revision shown in messages.
+short_hash_chars: 8
+
+# Bytes per chunk when hashing a dataset file (1 MiB).
+hash_chunk_bytes: 1048576

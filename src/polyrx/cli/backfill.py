@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cfg = load_config(args.overrides)
-    set_active_backends(cfg.backends)
+    set_active_backends(cfg.backends, cfg.postprocess)
     if not args.stub:
         # Fails with the variable name when the key is missing.
         cfg.backends.meta_judge.api_key()

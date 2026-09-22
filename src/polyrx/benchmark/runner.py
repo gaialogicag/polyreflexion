@@ -24,7 +24,7 @@ from polyrx.benchmark.opentom_loader import (
     sample_stories,
 )
 from polyrx.conditions import Condition, ConditionRegistry, default_registry
-from polyrx.config import PathsConfig, PromptsConfig
+from polyrx.config import PathsConfig, PostProcessConfig, PromptsConfig, ReportConfig
 from polyrx.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyrx.meta.prompts import MetaPromptRegistry
 from polyrx.models.base import LLMClient
@@ -106,6 +106,10 @@ class BenchmarkConfig:
     # Where results, caches and datasets live. Kept on the config so a run can
     # be redirected (tests, scratch dirs) without changing the process CWD.
     paths: PathsConfig = field(default_factory=PathsConfig)
+    # Presentation settings (chart sizes, truncation, progress interval).
+    report: ReportConfig = field(default_factory=ReportConfig)
+    # Thresholds deciding when a generation is rejected and retried.
+    postprocess: PostProcessConfig = field(default_factory=PostProcessConfig)
     # Custom condition grid; ``None`` uses the published one.
     condition_registry: ConditionRegistry | None = None
 
@@ -301,7 +305,7 @@ def _build_summaries(
                     max_workers=config.max_workers,
                 )
                 # One retry with a stricter reminder if the model collapses into token salad.
-                if looks_degenerate(summary):
+                if looks_degenerate(summary, config.postprocess.degeneracy):
                     print(
                         f"  [{summary_key}] story {i}/{len(stories)}: degenerate summary, retrying..."
                     )
@@ -566,7 +570,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             results_by_key[key]["predictions"][condition] = payload["prediction"]
             results_by_key[key]["judgments"][condition] = payload["judgment"]
             done += 1
-            if done % 10 == 0 or done == len(tasks):
+            if done % config.report.progress_every == 0 or done == len(tasks):
                 print(f"  answered {done}/{len(tasks)}")
 
     finished = datetime.now(UTC).isoformat()

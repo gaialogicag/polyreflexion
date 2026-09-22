@@ -8,7 +8,7 @@ rather than a search across the codebase.
 
 from __future__ import annotations
 
-from polyrx.config import BackendsConfig, OllamaConfig, OpenAIConfig
+from polyrx.config import BackendsConfig, OllamaConfig, OpenAIConfig, PostProcessConfig
 from polyrx.models.base import LLMClient
 from polyrx.models.ollama import OllamaClient
 from polyrx.models.openai_client import OpenAIClient
@@ -23,8 +23,13 @@ class ClientRegistry:
     connection pool; the benchmarks ask for the same role hundreds of times.
     """
 
-    def __init__(self, backends: BackendsConfig | None = None) -> None:
+    def __init__(
+        self,
+        backends: BackendsConfig | None = None,
+        postprocess: PostProcessConfig | None = None,
+    ) -> None:
         self.backends = backends or BackendsConfig()
+        self.postprocess = postprocess or PostProcessConfig()
         self._cache: dict[str, LLMClient] = {}
 
     def get(self, role: str) -> LLMClient:
@@ -36,7 +41,7 @@ class ClientRegistry:
             known = ", ".join(sorted(vars(self.backends)))
             raise ValueError(f"Unknown model role: {role!r}. Use one of: {known}.")
         if isinstance(config, OllamaConfig):
-            client: LLMClient = OllamaClient(config)
+            client: LLMClient = OllamaClient(config, extraction=self.postprocess.extraction)
         elif isinstance(config, OpenAIConfig):
             client = OpenAIClient(config)
         else:  # pragma: no cover - guarded by the config dataclasses
@@ -55,10 +60,13 @@ class ClientRegistry:
 _active = ClientRegistry()
 
 
-def set_active_backends(backends: BackendsConfig) -> ClientRegistry:
-    """Install the backend config every later :func:`get_client` call will use."""
+def set_active_backends(
+    backends: BackendsConfig,
+    postprocess: PostProcessConfig | None = None,
+) -> ClientRegistry:
+    """Install the config every later :func:`get_client` call will use."""
     global _active
-    _active = ClientRegistry(backends)
+    _active = ClientRegistry(backends, postprocess)
     return _active
 
 

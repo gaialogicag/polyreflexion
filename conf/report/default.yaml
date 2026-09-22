@@ -1,0 +1,28 @@
+# Presentation only. Nothing here changes a score.
+
+defaults:
+  - base_report
+
+# Chart size in inches.
+chart_width: 10.0
+chart_height: 5.0
+# The grouped by-question-type chart carries more series.
+grouped_chart_width: 12.0
+grouped_chart_height: 6.0
+
+# Item ids are content hashes; this many characters distinguishes table rows.
+id_display_chars: 8
+question_display_chars: 80
+excerpt_chars: 100
+
+# The flip-examples table is narrower than the main one.
+flip_question_chars: 60
+
+# Rows per flip-examples table in the detailed report.
+max_flip_examples: 12
+
+# Example excerpts listed per marker section.
+max_marker_examples: 8
+
+# Progress line every N answered question/condition pairs.
+progress_every: 10

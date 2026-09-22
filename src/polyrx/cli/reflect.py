@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("No input text given.")
 
     cfg = load_config(args.overrides)
-    set_active_backends(cfg.backends)
+    set_active_backends(cfg.backends, cfg.postprocess)
     # Command-line flags win over the config, which wins over the defaults.
     max_cycles = args.max_cycles if args.max_cycles is not None else cfg.meta.max_cycles
     depth = args.depth if args.depth is not None else cfg.meta.engine_depth

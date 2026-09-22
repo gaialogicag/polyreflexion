@@ -8,10 +8,10 @@ import time
 import urllib.error
 import urllib.request
 
-from polyrx.config import OllamaConfig
+from polyrx.config import AnswerExtractionConfig, DegeneracyConfig, OllamaConfig
 
 
-def extract_final_answer(raw: str) -> str:
+def extract_final_answer(raw: str, config: AnswerExtractionConfig | None = None) -> str:
     """Strip reasoning blocks and return the final answer from a model response.
 
     Phi reasoning models often emit ``<think>...`` (sometimes unclosed) and then a
@@ -40,7 +40,7 @@ def extract_final_answer(raw: str) -> str:
             boxed_inside = _extract_boxed(text)
             if boxed_inside is not None:
                 return boxed_inside
-            bold = _extract_bold_answer(text)
+            bold = _extract_bold_answer(text, config)
             if bold is not None:
                 return bold
             # Last non-empty line is a weak fallback for truncated CoT.
@@ -55,7 +55,7 @@ def extract_final_answer(raw: str) -> str:
     if boxed is not None:
         return boxed
 
-    bold = _extract_bold_answer(text)
+    bold = _extract_bold_answer(text, config)
     if bold is not None:
         return bold
 
@@ -63,14 +63,18 @@ def extract_final_answer(raw: str) -> str:
     return text.strip().strip('"')
 
 
-def _extract_bold_answer(text: str) -> str | None:
+def _extract_bold_answer(
+    text: str,
+    config: AnswerExtractionConfig | None = None,
+) -> str | None:
     """Return the last short ``**answer**`` span, if it looks like a label."""
-    matches = list(re.finditer(r"\*\*([^*]{1,80})\*\*", text))
+    config = config or AnswerExtractionConfig()
+    matches = list(re.finditer(rf"\*\*([^*]{{1,{config.max_bold_chars}}})\*\*", text))
     if not matches:
         return None
     candidate = matches[-1].group(1).strip()
     # Ignore long analysis headings accidentally wrapped in bold.
-    if len(candidate.split()) > 8:
+    if len(candidate.split()) > config.max_bold_words:
         return None
     return candidate
 
@@ -95,33 +99,36 @@ def _extract_boxed(text: str) -> str | None:
     return (text_match.group(1) if text_match else inner).strip()
 
 
-def looks_degenerate(text: str) -> bool:
-    """Heuristic: Phi sometimes collapses into token-salad / fake math puzzles."""
-    if not text or len(text.strip()) < 20:
+def looks_degenerate(text: str, config: DegeneracyConfig | None = None) -> bool:
+    """Whether a generation collapsed instead of answering.
+
+    Small reasoning models sometimes emit token salad or invent a maths puzzle.
+    A summary that trips this is regenerated once with a stricter reminder, so
+    the thresholds in ``config`` affect which runs get a second attempt.
+    """
+    config = config or DegeneracyConfig()
+    if not text or len(text.strip()) < config.min_chars:
         return True
-    sample = text[:4000]
+    sample = text[: config.sample_chars]
     digit_ratio = sum(ch.isdigit() for ch in sample) / max(len(sample), 1)
-    if digit_ratio > 0.18:
+    if digit_ratio > config.max_digit_ratio:
         return True
-    # Typical degeneration phrases from failed phi4-mini-reasoning runs.
-    bad_markers = (
-        "your name is",
-        "named as",
-        "segment",
-        "\\boxed",
-        "the value of r",
-        "process results",
-    )
     lower = sample.lower()
-    hits = sum(1 for marker in bad_markers if marker in lower)
-    return hits >= 2
+    hits = sum(1 for marker in config.markers if marker in lower)
+    return hits >= config.min_marker_hits
 
 
 class OllamaClient:
     """Local Ollama backend returning only the final answer."""
 
-    def __init__(self, config: OllamaConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: OllamaConfig | None = None,
+        *,
+        extraction: AnswerExtractionConfig | None = None,
+    ) -> None:
         self.config = config or OllamaConfig()
+        self.extraction = extraction
         self.model = self.config.model
         self.host = self.config.host
         self.num_ctx = self.config.num_ctx
@@ -133,7 +140,11 @@ class OllamaClient:
 
     def complete(self, prompt: str) -> str:
         raw = self._raw(prompt)
-        return extract_final_answer(raw) if self.strip_reasoning else raw
+        return extract_final_answer(raw, self.extraction) if self.strip_reasoning else raw
+
+    def _backoff(self, attempt: int) -> int:
+        """Linear backoff, capped, so a stalled server does not stall the run."""
+        return min(self.config.backoff_max_s, self.config.backoff_step_s * attempt)
 
     def _raw(self, prompt: str) -> str:
         body: dict = {
@@ -165,7 +176,7 @@ class OllamaClient:
             except TimeoutError as exc:
                 last_error = exc
                 print(f"Ollama timeout (attempt {attempt}/{self.retries}), retrying...")
-                time.sleep(min(30, 5 * attempt))
+                time.sleep(self._backoff(attempt))
             except urllib.error.URLError as exc:
                 last_error = exc
                 if attempt == self.retries:
@@ -173,7 +184,7 @@ class OllamaClient:
                         f"Ollama not reachable at {self.host}. Start with: ollama serve"
                     ) from exc
                 print(f"Ollama URL error (attempt {attempt}/{self.retries}): {exc}")
-                time.sleep(min(30, 5 * attempt))
+                time.sleep(self._backoff(attempt))
         raise TimeoutError(
             f"Ollama request timed out after {self.retries} attempts (timeout={self.timeout}s)"
         ) from last_error

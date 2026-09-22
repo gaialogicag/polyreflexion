@@ -28,7 +28,7 @@ from polyrx.benchmark.runner import (
     unique_stamp,
     uses_summary_condition,
 )
-from polyrx.config import PathsConfig, PromptsConfig
+from polyrx.config import PathsConfig, PromptsConfig, ReportConfig
 from polyrx.engine import PromptRegistry
 from polyrx.models.base import LLMClient
 from polyrx.provenance import Provenance
@@ -54,6 +54,8 @@ class GPQABenchmarkConfig:
     fixed_question_ids: frozenset[str] = frozenset()
     # Where results, caches and datasets live.
     paths: PathsConfig = field(default_factory=PathsConfig)
+    # Presentation settings (chart sizes, truncation, progress interval).
+    report: ReportConfig = field(default_factory=ReportConfig)
 
 
 @dataclass
@@ -82,6 +84,7 @@ def _to_shared_config(config: GPQABenchmarkConfig) -> BenchmarkConfig:
         meta_prompt_profile=config.meta_prompt_profile,
         paths=config.paths,
         prompts=config.prompts,
+        report=config.report,
     )
 
 

@@ -56,6 +56,9 @@ class OllamaConfig:
     num_predict: int = 512
     timeout_s: int = 1800
     retries: int = 3
+    #: Backoff between retries is ``attempt * backoff_step_s``, capped.
+    backoff_step_s: int = 5
+    backoff_max_s: int = 30
     temperature: float = 0.2
     #: ``None`` leaves the flag off the request for older Ollama builds.
     think: bool | None = False
@@ -117,6 +120,13 @@ class DatasetConfig:
     extras: list[DatasetFile] = field(default_factory=list)
     #: Fail the run when a downloaded file does not match its recorded sha256.
     verify_checksums: bool = True
+    #: Characters of the content hash that form an item's id. This is a data
+    #: format, not a tuning knob: changing it renames every item, which
+    #: invalidates every cached summary and makes saved runs unmergeable.
+    id_hash_chars: int = 12
+    #: Characters of the per-question hash that seeds GPQA choice shuffling.
+    #: Changing it reshuffles every question's answer order.
+    shuffle_hash_chars: int = 8
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +217,12 @@ class EngineConfig:
     """The recursive reflexion engine itself."""
 
     max_workers: int = 8
+    #: Tree depth used when a caller does not specify one. Conditions carry
+    #: their own depth, so this only applies outside the benchmark grid.
+    default_max_depth: int = 2
+    #: The pool is sized to the tree: three branches per node, one level of
+    #: lookahead. The cap stops a deep tree from opening thousands of threads.
+    worker_pool_cap: int = 128
 
 
 @dataclass
@@ -249,6 +265,116 @@ class MetaLayerConfig:
             drift_check_enabled=self.drift_check_enabled,
             max_consecutive_drifts=self.max_consecutive_drifts,
         )
+
+
+# ---------------------------------------------------------------------------
+# Reading answers out of model output
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DegeneracyConfig:
+    """When to treat a model's output as collapsed rather than an answer.
+
+    Small reasoning models sometimes emit token salad or invent a maths puzzle
+    instead of answering. A summary that trips this is regenerated once with a
+    stricter reminder, so these thresholds change which runs get a second
+    attempt — and therefore the published numbers.
+    """
+
+    #: Shorter than this (after stripping) is treated as no answer at all.
+    min_chars: int = 20
+    #: Only the first N characters are examined; collapse shows up early.
+    sample_chars: int = 4000
+    #: Fraction of digits above which the text reads as numeric salad.
+    max_digit_ratio: float = 0.18
+    #: Phrases seen in failed phi4-mini-reasoning generations.
+    markers: list[str] = field(
+        default_factory=lambda: [
+            "your name is",
+            "named as",
+            "segment",
+            "\\boxed",
+            "the value of r",
+            "process results",
+        ]
+    )
+    #: How many distinct markers must appear before the text is rejected. One
+    #: marker alone is too easy to hit by chance.
+    min_marker_hits: int = 2
+
+
+@dataclass
+class AnswerExtractionConfig:
+    """Pulling a final answer out of a reasoning model's full response."""
+
+    #: A ``**bold**`` span longer than this is prose, not a label.
+    max_bold_chars: int = 80
+    #: A bold span with more words than this is a heading, not a label.
+    max_bold_words: int = 8
+
+
+@dataclass
+class PostProcessConfig:
+    """Everything applied to raw model text before it is scored."""
+
+    degeneracy: DegeneracyConfig = field(default_factory=DegeneracyConfig)
+    extraction: AnswerExtractionConfig = field(default_factory=AnswerExtractionConfig)
+
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ReportConfig:
+    """Presentation only: nothing here changes a score."""
+
+    #: Figure size in inches for the single-series charts.
+    chart_width: float = 10.0
+    chart_height: float = 5.0
+    #: The grouped by-question-type chart needs more room.
+    grouped_chart_width: float = 12.0
+    grouped_chart_height: float = 6.0
+    #: Item identifiers are content hashes; this many characters is enough to
+    #: tell rows apart in a table.
+    id_display_chars: int = 8
+    #: Question text is truncated to keep the table readable.
+    question_display_chars: int = 80
+    #: Marker excerpts quoted in the detailed report.
+    excerpt_chars: int = 100
+    #: Question text in the narrower flip-examples table.
+    flip_question_chars: int = 60
+    #: Rows shown per flip-examples table in the detailed report.
+    max_flip_examples: int = 12
+    #: Example excerpts listed per marker section.
+    max_marker_examples: int = 8
+    #: Print a progress line every N answered question/condition pairs.
+    progress_every: int = 10
+
+
+# ---------------------------------------------------------------------------
+# Provenance collection
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ProvenanceConfig:
+    """What the run record gathers about its own environment."""
+
+    #: Packages whose version can change a result. A full ``pip freeze`` buries
+    #: the handful that matter.
+    tracked_packages: list[str] = field(
+        default_factory=lambda: ["openai", "huggingface_hub", "hydra-core", "omegaconf"]
+    )
+    #: Seconds to wait on each git subprocess. Provenance must never be the
+    #: reason a run hangs.
+    git_timeout_s: int = 5
+    #: Characters of a commit or revision shown in human-readable messages.
+    short_hash_chars: int = 8
+    #: Bytes read per chunk when hashing a dataset file.
+    hash_chunk_bytes: int = 1048576
 
 
 # ---------------------------------------------------------------------------
@@ -296,5 +422,8 @@ class RootConfig:
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
     prompts: PromptsConfig = field(default_factory=PromptsConfig)
+    postprocess: PostProcessConfig = field(default_factory=PostProcessConfig)
+    report: ReportConfig = field(default_factory=ReportConfig)
+    provenance: ProvenanceConfig = field(default_factory=ProvenanceConfig)
     meta: MetaLayerConfig = field(default_factory=MetaLayerConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)

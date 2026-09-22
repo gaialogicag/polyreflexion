@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 
-from polyrx.config import OllamaConfig, ReflexionPrompts
+from polyrx.config import EngineConfig, OllamaConfig, ReflexionPrompts
 from polyrx.models.base import CallableLLMClient, LLMClient
 from polyrx.models.ollama import OllamaClient
 
@@ -251,12 +251,15 @@ class ReflexionEngine:
         llm: LLMClient | Callable[[str], str],
         *,
         prompts: PromptRegistry,
-        max_depth: int = 2,
+        max_depth: int | None = None,
         max_workers: int | None = None,
         parallel: bool = True,
+        config: EngineConfig | None = None,
     ) -> None:
         self._llm = llm if isinstance(llm, LLMClient) else CallableLLMClient(llm)
         self._prompts = prompts
+        self._config = config or EngineConfig()
+        max_depth = self._config.default_max_depth if max_depth is None else max_depth
         self._max_depth = max_depth
         self._parallel = parallel
         self._llm_pool: ThreadPoolExecutor | None = None
@@ -265,7 +268,7 @@ class ReflexionEngine:
             # Tree recursion submits child tasks and waits on the same pool.
             # That pool MUST be wide enough for the full breadth of waiting
             # parents + queued children, or depth>=3 deadlocks.
-            tree_workers = self.recommended_workers(max_depth)
+            tree_workers = self.recommended_workers(max_depth, self._config)
             # Cap LLM concurrency separately (API rate limits / local GPU).
             llm_workers = max_workers or tree_workers
             self._llm_pool = ThreadPoolExecutor(max_workers=llm_workers, thread_name_prefix="llm")
@@ -274,9 +277,15 @@ class ReflexionEngine:
             )
 
     @staticmethod
-    def recommended_workers(max_depth: int) -> int:
-        """Worker count for full tree + batched LLM parallelism without deadlock."""
-        return min(128, 3 ** (max_depth + 1))
+    def recommended_workers(max_depth: int, config: EngineConfig | None = None) -> int:
+        """Worker count for full tree + batched LLM parallelism without deadlock.
+
+        The tree branches three ways per node — that is the Sierpinski
+        structure, not a setting — so the pool needs one level of lookahead
+        beyond the deepest level. Only the ceiling is configurable.
+        """
+        config = config or EngineConfig()
+        return min(config.worker_pool_cap, len(Perspective) ** (max_depth + 1))
 
     def run(self, text: str) -> ReflexionResult:
         """Run parallel reflexion and synthesize outermost corner perspectives."""
@@ -415,9 +424,10 @@ def reflexion(
     text: str,
     prompts: PromptRegistry,
     *,
-    max_depth: int = 2,
+    max_depth: int | None = None,
     llm: LLMClient | Callable[[str], str] = call_llm,
     max_workers: int | None = None,
+    config: EngineConfig | None = None,
 ) -> ReflexionResult:
     """Run parallel reflexion (convenience wrapper around ReflexionEngine).
 
@@ -429,6 +439,7 @@ def reflexion(
         prompts=prompts,
         max_depth=max_depth,
         max_workers=max_workers,
+        config=config,
     ) as engine:
         return engine.run(text)
 

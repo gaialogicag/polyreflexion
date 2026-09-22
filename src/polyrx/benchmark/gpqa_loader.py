@@ -70,9 +70,10 @@ class GPQAItem:
     choices: dict[str, str]
 
 
-def _question_id(*parts: str) -> str:
+def _question_id(*parts: str, id_chars: int = DatasetConfig().id_hash_chars) -> str:
+    """Content hash identifying a question across runs and caches."""
     blob = "\n".join(parts)
-    return hashlib.sha256(blob.encode()).hexdigest()[:12]
+    return hashlib.sha256(blob.encode()).hexdigest()[:id_chars]
 
 
 def _format_prompt(stem: str, choices: dict[str, str]) -> str:
@@ -182,7 +183,12 @@ def _item_from_official(row: dict[str, str], *, shuffle_seed: int) -> GPQAItem:
     options = [correct, *incorrect]
     # Deterministic per-question shuffle so merge/extend runs stay stable.
     rng = random.Random(
-        int(hashlib.sha256(f"{shuffle_seed}:{stem}:{correct}".encode()).hexdigest()[:8], 16)
+        int(
+            hashlib.sha256(f"{shuffle_seed}:{stem}:{correct}".encode()).hexdigest()[
+                : DatasetConfig().shuffle_hash_chars
+            ],
+            16,
+        )
     )
     rng.shuffle(options)
     choices = {letter: text for letter, text in zip(_CHOICE_LETTERS, options, strict=True)}

@@ -9,6 +9,7 @@ from pathlib import Path
 from polyrx.benchmark.metrics import compute_metrics
 from polyrx.benchmark.runner import CONDITIONS, BenchmarkRun
 from polyrx.charts import pyplot
+from polyrx.config import ReportConfig
 
 
 def _ordered_conditions(metrics: dict) -> list[str]:
@@ -18,14 +19,17 @@ def _ordered_conditions(metrics: dict) -> list[str]:
     return known + extras
 
 
-def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
+def _bar_chart_by_condition(
+    metrics: dict, chart_path: Path, report: ReportConfig | None = None
+) -> None:
     plt = pyplot()
     if plt is None:
         return
+    report = report or ReportConfig()
     conditions = _ordered_conditions(metrics)
     acc_scores = [metrics[c].accuracy for c in conditions]
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(report.chart_width, report.chart_height))
     ax.bar(range(len(conditions)), acc_scores)
     ax.set_xticks(range(len(conditions)))
     ax.set_xticklabels(conditions, rotation=20, ha="right")
@@ -37,13 +41,16 @@ def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
     plt.close(fig)
 
 
-def _grouped_chart_by_type(metrics: dict, chart_path: Path) -> None:
+def _grouped_chart_by_type(
+    metrics: dict, chart_path: Path, report: ReportConfig | None = None
+) -> None:
     plt = pyplot()
     if plt is None:
         return
+    report = report or ReportConfig()
     types = sorted({t for m in metrics.values() for t in m.by_type})
     conditions = _ordered_conditions(metrics)
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(report.grouped_chart_width, report.grouped_chart_height))
     width = 0.18
     for i, condition in enumerate(conditions):
         scores = [metrics[condition].by_type.get(t, {}).get("accuracy", 0.0) for t in types]
@@ -61,16 +68,17 @@ def _grouped_chart_by_type(metrics: dict, chart_path: Path) -> None:
     plt.close(fig)
 
 
-def _comparison_chart(metrics: dict, chart_path: Path) -> None:
+def _comparison_chart(metrics: dict, chart_path: Path, report: ReportConfig | None = None) -> None:
     plt = pyplot()
     if plt is None:
         return
+    report = report or ReportConfig()
     labels = _ordered_conditions(metrics)
     scores = [metrics[c].accuracy for c in labels]
     if not labels:
         return
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(report.chart_width, report.chart_height))
     ax.bar(range(len(labels)), scores)
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=20, ha="right")
@@ -90,8 +98,15 @@ def _escape_cell(text: str, max_len: int = 80) -> str:
     return text
 
 
-def write_report(run: BenchmarkRun, report_path: Path) -> Path:
+def write_report(
+    run: BenchmarkRun,
+    report_path: Path,
+    report: ReportConfig | None = None,
+) -> Path:
     """Write markdown report with charts and per-question table."""
+    # Presentation settings travel on the run, so a report regenerated later
+    # looks the same as the one the run produced.
+    report = report or getattr(run.config, "report", None) or ReportConfig()
     metrics = compute_metrics(run.results)
     charts_dir = report_path.parent / "charts"
     charts_dir.mkdir(parents=True, exist_ok=True)
@@ -99,9 +114,9 @@ def write_report(run: BenchmarkRun, report_path: Path) -> Path:
     chart_overall = charts_dir / "scores_by_condition.png"
     chart_by_type = charts_dir / "scores_by_question_type.png"
     chart_compare = charts_dir / "direct_vs_reflexion.png"
-    _bar_chart_by_condition(metrics, chart_overall)
-    _grouped_chart_by_type(metrics, chart_by_type)
-    _comparison_chart(metrics, chart_compare)
+    _bar_chart_by_condition(metrics, chart_overall, report)
+    _grouped_chart_by_type(metrics, chart_by_type, report)
+    _comparison_chart(metrics, chart_compare, report)
 
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
@@ -170,8 +185,8 @@ def write_report(run: BenchmarkRun, report_path: Path) -> Path:
             return "correct" if judgments[cond].get("correct") else "wrong"
 
         cells = [
-            _escape_cell(row["story_id"][:8]),
-            _escape_cell(row["question"][:80]),
+            _escape_cell(row["story_id"][: report.id_display_chars]),
+            _escape_cell(row["question"][: report.question_display_chars]),
             _escape_cell(row["gold_label"]),
         ]
         cells.extend(_escape_cell(preds.get(c, "")) for c in pred_cols)

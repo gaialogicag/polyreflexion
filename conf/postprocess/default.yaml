@@ -1,0 +1,32 @@
+# Turning raw model text into a scoreable answer.
+#
+# These thresholds decide which generations are rejected as collapsed and
+# retried, so they affect published numbers. Change them deliberately and bump
+# experiment.cache_namespace when you do.
+
+defaults:
+  - base_postprocess
+
+degeneracy:
+  # Shorter than this, after stripping, is not an answer.
+  min_chars: 20
+  # Collapse shows up early, so only the head of the text is examined.
+  sample_chars: 4000
+  # Above this fraction of digits the text reads as numeric salad.
+  max_digit_ratio: 0.18
+  # Phrases observed in failed phi4-mini-reasoning generations.
+  markers:
+    - your name is
+    - named as
+    - segment
+    - \boxed
+    - the value of r
+    - process results
+  # One marker alone is too easy to hit by chance.
+  min_marker_hits: 2
+
+extraction:
+  # A **bold** span longer than this is prose, not a label.
+  max_bold_chars: 80
+  # More words than this makes it a heading, not a label.
+  max_bold_words: 8

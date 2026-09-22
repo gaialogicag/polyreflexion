@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     # The ask profile uses answer-oriented templates; override it if you want
     # the benchmark-style summary prompts instead.
     cfg = load_config(["meta=ask", "prompts/reflexion=ask", "prompts/meta=ask", *args.overrides])
-    set_active_backends(cfg.backends)
+    set_active_backends(cfg.backends, cfg.postprocess)
     max_cycles = args.max_cycles if args.max_cycles is not None else cfg.meta.max_cycles
     workers = args.workers if args.workers is not None else cfg.engine.max_workers
     depth = args.depth if args.depth is not None else cfg.meta.engine_depth
