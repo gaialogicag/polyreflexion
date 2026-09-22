@@ -76,17 +76,17 @@ def repair_dimensions(transitions: list[LabelTransition]) -> tuple[str, ...]:
     return tuple(t.dimension.value for t in transitions if not t.from_positive and t.to_positive)
 
 
-def repaired_story_ids(
+def repaired_item_ids(
     results: list[dict],
     *,
     baseline: str,
     condition: str,
 ) -> dict[str, list[FlipRecord]]:
-    """Map story_id -> gain flips (baseline wrong, condition correct)."""
+    """Map item_id -> gain flips (baseline wrong, condition correct)."""
     flip = collect_flips(results, baseline=baseline, condition=condition)
     by_story: dict[str, list[FlipRecord]] = defaultdict(list)
     for record in flip.gains:
-        by_story[record.story_id].append(record)
+        by_story[record.item_id].append(record)
     return dict(by_story)
 
 
@@ -100,7 +100,7 @@ def build_dimension_attribution(
     max_examples: int = 5,
 ) -> DimensionAttributionReport:
     """Link QA wrong→right flips to judge dimension repairs in meta traces."""
-    by_story = repaired_story_ids(results, baseline=baseline, condition=condition)
+    by_story = repaired_item_ids(results, baseline=baseline, condition=condition)
     report = DimensionAttributionReport(
         baseline=baseline,
         condition=condition,
@@ -112,8 +112,8 @@ def build_dimension_attribution(
         stories_no_dimension_repair=0,
     )
 
-    for story_id in sorted(by_story):
-        trace = traces.get(story_id)
+    for item_id in sorted(by_story):
+        trace = traces.get(item_id)
         if trace is None or not trace.cycles:
             report.stories_without_trace += 1
             continue
@@ -126,15 +126,15 @@ def build_dimension_attribution(
         if not dims:
             report.stories_no_dimension_repair += 1
         else:
-            report.repair_flips_by_story[story_id] = dims
+            report.repair_flips_by_story[item_id] = dims
             for dim in dims:
                 report.repair_flips[dim] += 1
 
         if len(report.example_trajectories) < max_examples and trace.cycles:
             report.example_trajectories.append(
                 {
-                    "story_id": story_id,
-                    "repaired_count": len(by_story[story_id]),
+                    "item_id": item_id,
+                    "repaired_count": len(by_story[item_id]),
                     "trajectory": " → ".join(c.triple for c in trace.cycles),
                     "termination": trace.termination_reason,
                     "repair_dims": ", ".join(dims) or "(none)",

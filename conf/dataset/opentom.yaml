@@ -1,13 +1,24 @@
+# OpenToM: theory-of-mind questions over short narratives.
+#
+# Has its own adapter because the allowed answers depend on the question:
+# "where will Sam look?" is scored against the places that story mentions, not
+# against a fixed list. Several questions share each narrative, so items are
+# sampled by context.
+
 defaults:
   - base_dataset
 
 name: opentom
+adapter: opentom
+group_name: question type
+sample_by: context
+
 primary:
   repo_id: SeacowX/OpenToM
   filename: opentom.json
-  # Pin a Hub commit sha here. `polyrx-manifest pin` resolves the current one
-  # and records its checksum in data/MANIFEST.json. Leaving this at `main`
-  # makes the run unreproducible and the runner says so.
+  # Pin a Hub commit sha. `polyrx-manifest pin` resolves the current one and
+  # records its checksum; leaving this at `main` makes the run unreproducible
+  # and the runner says so.
   revision: main
   repo_type: dataset
   gated: false

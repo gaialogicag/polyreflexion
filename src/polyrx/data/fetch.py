@@ -104,7 +104,22 @@ class DatasetFetcher:
     # -- single file --------------------------------------------------------
 
     def fetch(self, spec: DatasetFile, *, subdir: str | None = None) -> Path:
-        """Download one file and verify it, returning the local path."""
+        """Return the local path of one dataset file, downloading if needed."""
+        if spec.path:
+            # A local file: nothing to download, and nothing to pin. It is
+            # still hashed, so the run records which bytes it scored.
+            path = Path(spec.path).expanduser().resolve()
+            if not path.is_file():
+                raise FileNotFoundError(f"Dataset file not found: {path}")
+            self._verify(spec, path)
+            return path
+
+        if not spec.repo_id or not spec.filename:
+            raise ValueError(
+                "A dataset source needs either `path` for a local file, or "
+                "`repo_id` and `filename` for a Hugging Face Hub repo."
+            )
+
         from huggingface_hub import hf_hub_download
 
         target_dir = self.cache_dir / subdir if subdir else self.cache_dir
@@ -149,9 +164,9 @@ class DatasetFetcher:
 
         self.fetched.append(
             DatasetInfo(
-                name=spec.repo_id.split("/")[-1],
-                repo_id=spec.repo_id,
-                filename=spec.filename,
+                name=(spec.repo_id or spec.path or "").split("/")[-1],
+                repo_id=spec.repo_id or "(local file)",
+                filename=spec.filename or str(spec.path or ""),
                 revision=spec.revision,
                 sha256=digest,
             )
@@ -194,6 +209,8 @@ class DatasetFetcher:
 
         api = HfApi()
         for spec in (config.primary, *config.fallbacks, *config.extras):
+            if spec.path:
+                continue  # A local file has no upstream revision to pin.
             try:
                 info = api.repo_info(spec.repo_id, repo_type=spec.repo_type)
             except Exception as exc:

@@ -63,7 +63,7 @@ summary: |-
   {corner_b}
 
   Write one concise plain-English integrated summary of the story events and the characters' beliefs. Preserve names, places, and who knows what. Do not use math, codes, segment IDs, or puzzle formatting.
-opentom_qa: |-
+qa: |-
   You are an expert in modeling others' mental states.
 
   Read the following context and answer the question.
@@ -79,7 +79,7 @@ opentom_qa: |-
   - Reply with ONLY one allowed label.
   - Prefer the form: \\boxed{{LABEL}} where LABEL is exactly one allowed answer.
   - No explanation, no analysis, no extra words.
-opentom_judge: |-
+judge: |-
   You are evaluating a Theory-of-Mind benchmark answer.
 
   Gold answer: {gold}

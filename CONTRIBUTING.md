@@ -72,6 +72,18 @@ polyrx-conditions check
 polyrx-conditions lock
 ```
 
+## Adding a dataset
+
+A config file in `conf/dataset/`, usually with `adapter: tabular` and a column
+mapping. No Python. See `conf/dataset/example_mcq.yaml`.
+
+Write an adapter only when the source needs parsing the column mapping cannot
+express — allowed answers that vary per item, or two incompatible source
+layouts. Subclass `DatasetAdapter`, implement `load` and `match_label`, and
+decorate the class with `@register_adapter`.
+
+Nothing outside `polyrx/datasets/` may branch on which dataset is running.
+
 ## Changing a dataset revision
 
 ```bash

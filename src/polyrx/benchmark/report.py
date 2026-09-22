@@ -1,4 +1,4 @@
-"""Generate markdown reports with charts for OpenToM benchmark runs."""
+"""Markdown report with charts for a benchmark run, whatever the dataset."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _bar_chart_by_condition(
     ax.set_xticklabels(conditions, rotation=20, ha="right")
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("Accuracy")
-    ax.set_title("OpenToM accuracy by condition")
+    ax.set_title("Accuracy by condition")
     fig.tight_layout()
     fig.savefig(chart_path, dpi=150)
     plt.close(fig)
@@ -53,6 +53,7 @@ def _grouped_chart_by_type(
     chart_path: Path,
     report: ReportConfig | None = None,
     order: tuple[str, ...] = (),
+    group_name: str = "group",
 ) -> None:
     plt = pyplot()
     if plt is None:
@@ -71,7 +72,7 @@ def _grouped_chart_by_type(
     ax.set_xticklabels(types, rotation=15, ha="right")
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("Accuracy")
-    ax.set_title("OpenToM accuracy by question type")
+    ax.set_title(f"Accuracy by {group_name}")
     ax.legend()
     fig.tight_layout()
     fig.savefig(chart_path, dpi=150)
@@ -124,15 +125,18 @@ def write_report(
     report = report or getattr(run.config, "report", None) or ReportConfig()
     # Column order is the run's own grid, not a constant in this file.
     order = tuple(run.config.conditions)
+    # What the grouping dimension is called, so headings say "by domain" or
+    # "by question type" rather than a generic word.
+    group_name = run.config.dataset.group_name or "group"
     metrics = compute_metrics(run.results)
     charts_dir = report_path.parent / "charts"
     charts_dir.mkdir(parents=True, exist_ok=True)
 
     chart_overall = charts_dir / "scores_by_condition.png"
-    chart_by_type = charts_dir / "scores_by_question_type.png"
+    chart_by_type = charts_dir / "scores_by_group.png"
     chart_compare = charts_dir / "direct_vs_reflexion.png"
     _bar_chart_by_condition(metrics, chart_overall, report, order)
-    _grouped_chart_by_type(metrics, chart_by_type, report, order)
+    _grouped_chart_by_type(metrics, chart_by_type, report, order, group_name)
     _comparison_chart(metrics, chart_compare, report, order)
 
     def rel(p: Path) -> str:
@@ -140,13 +144,14 @@ def write_report(
         return p.relative_to(report_path.parent).as_posix()
 
     lines = [
-        "# OpenToM Benchmark Report",
+        "# Benchmark Report",
         "",
         f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         "## Configuration",
         "",
-        f"- Stories: {run.config.num_stories}",
+        f"- Dataset: {run.config.dataset.name} (adapter {run.config.dataset.adapter})",
+        f"- Items: {run.config.num_items}",
         f"- Reflexion depth: {run.config.reflexion_depth}",
         f"- Seed: {run.config.seed}",
         f"- Stub mode: {run.config.use_stub}",
@@ -177,11 +182,11 @@ def write_report(
             "",
             f"![Scores by condition]({rel(chart_overall)})",
             "",
-            f"![Scores by question type]({rel(chart_by_type)})",
+            f"![Scores by {group_name}]({rel(chart_by_type)})",
             "",
             f"![Condition comparison]({rel(chart_compare)})",
             "",
-            "## Per-question results",
+            "## Per-item results",
             "",
             f"| Story | Question | Gold | {header_preds} | {header_judges} |",
             f"|-------|----------|------| {sep_preds} | {sep_judges} |",
@@ -200,7 +205,7 @@ def write_report(
             return "correct" if judgments[cond].get("correct") else "wrong"
 
         cells = [
-            _escape_cell(row["story_id"][: report.id_display_chars]),
+            _escape_cell(row["item_id"][: report.id_display_chars]),
             _escape_cell(row["question"][: report.question_display_chars]),
             _escape_cell(row["gold_label"]),
         ]
@@ -213,7 +218,7 @@ def write_report(
             "",
             "## Notes",
             "",
-            "- OpenToM is used for evaluation only (not for training).",
+            "- The dataset is used for evaluation only, never for training.",
             "- Judge model: gpt-5-mini (fallback string match if judge JSON fails).",
             "- Reflexion conditions use the integrated summary as QA context.",
             "- `nano_reflexion` / `phi_reflexion` = depth 1; `*_d2` = depth 2; `*_d3` = depth 3.",

@@ -92,10 +92,18 @@ class BackendsConfig:
 
 @dataclass
 class DatasetFile:
-    """One file to pull from the Hugging Face Hub, pinned to a commit."""
+    """Where one dataset file comes from.
 
-    repo_id: str
-    filename: str
+    Either a local path, or a Hugging Face Hub repo pinned to a commit. A local
+    path skips downloading and checksum pinning entirely, which is the right
+    thing for data that is not published.
+    """
+
+    #: A file on disk, absolute or relative to the working directory. When set,
+    #: the Hub fields are ignored.
+    path: str | None = None
+    repo_id: str = ""
+    filename: str = ""
     #: Hub commit sha. ``"main"`` is accepted but makes the run unreproducible,
     #: so :func:`polyrx.data.manifest.verify` warns loudly about it.
     revision: str = "main"
@@ -107,13 +115,58 @@ class DatasetFile:
 
 
 @dataclass
-class DatasetConfig:
-    """A benchmark dataset: a primary source plus optional fallbacks."""
+class FieldMap:
+    """Which columns or JSON keys carry each part of an item.
 
-    name: str = "opentom"
-    primary: DatasetFile = field(
-        default_factory=lambda: DatasetFile(repo_id="SeacowX/OpenToM", filename="opentom.json")
-    )
+    Only the tabular adapter reads this. A dataset whose source needs real
+    parsing registers its own adapter and ignores these.
+    """
+
+    #: The text to reason over. Falls back to ``question`` when absent, which
+    #: is right for self-contained questions.
+    context: str | None = None
+    question: str = "question"
+    answer: str = "answer"
+    #: Column holding the allowed answers, if the source states them per row.
+    label_space: str | None = None
+    #: Column to group by in per-group metrics (a type, a domain, a split).
+    group: str | None = None
+    #: Columns holding multiple-choice options, in order. When set, the item's
+    #: label space becomes the choice letters and the options are rendered into
+    #: the prompt.
+    choices: list[str] = field(default_factory=list)
+    #: Column naming the correct option, when the source gives the text of the
+    #: right answer rather than its letter.
+    correct_choice: str | None = None
+    #: Columns holding the wrong options, when the source separates them.
+    incorrect_choices: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DatasetConfig:
+    """A benchmark dataset: a primary source plus optional fallbacks.
+
+    ``adapter`` selects how the source is parsed. ``tabular`` handles CSV, TSV,
+    JSON and JSONL described by ``fields`` and needs no Python at all; a source
+    that needs real parsing registers an adapter under its own name.
+    """
+
+    name: str = "dataset"
+    #: Registered adapter name. See ``polyrx-datasets list``.
+    adapter: str = "tabular"
+    #: How the source's columns map onto an item. Tabular adapter only.
+    fields: FieldMap = field(default_factory=FieldMap)
+    #: Allowed answers when the source does not state them per row. Empty means
+    #: the adapter derives them (from the choices, or from the data).
+    label_space: str = ""
+    #: What the grouping dimension is called in report headings.
+    group_name: str = "group"
+    #: Whether several items can share one context and must be sampled
+    #: together. ``item`` samples each item independently.
+    sample_by: str = "item"
+    #: Where the data comes from. No default: a dataset config names its own
+    #: source, and nothing in this file should know about any particular one.
+    primary: DatasetFile = field(default_factory=DatasetFile)
     #: Tried in order when ``primary`` is unavailable (gated, rate-limited).
     fallbacks: list[DatasetFile] = field(default_factory=list)
     #: Extra files (domain label maps, metadata parquets).
@@ -177,10 +230,12 @@ class ReflexionPrompts:
     perspectives: dict[str, str] = field(default_factory=dict)
     #: Re-integrates the three corner answers into one text.
     summary: str = ""
-    opentom_qa: str = ""
-    opentom_judge: str = ""
-    gpqa_qa: str = ""
-    gpqa_judge: str = ""
+    #: Asks the question given the built summary. Empty in the interactive set,
+    #: which has no scoring pass.
+    qa: str = ""
+    #: Decides whether an answer matches the gold label when the adapter could
+    #: not place it. Empty means fall back to a string comparison.
+    judge: str = ""
 
 
 @dataclass
@@ -423,8 +478,6 @@ class ExperimentConfig:
     profile, both of which now live in the dataset and meta sections.
     """
 
-    #: Which suite to run: ``opentom`` or ``gpqa``.
-    suite: str = "opentom"
     num_items: int = 10
     seed: int = 42
     max_workers: int = 4

@@ -1,10 +1,19 @@
+# GPQA Diamond: graduate-level biology, physics and chemistry.
+#
+# Has its own adapter because the official release and the public mirror have
+# different shapes, and which one answers depends on whether you hold a licence
+# for the gated repo. Domain labels are recovered from a third repository.
+
 defaults:
   - base_dataset
 
 name: gpqa
+adapter: gpqa
+group_name: domain
+sample_by: item
+
 # The official release is gated: accept the terms on the Hub and set HF_TOKEN.
-# Without it the fetch falls through to the public mirror, which lacks domain
-# labels -- those are then recovered from the `extras` parquet.
+# Without it the fetch falls through to the mirror, which has no domain labels.
 primary:
   repo_id: Idavidrein/gpqa
   filename: gpqa_diamond.csv

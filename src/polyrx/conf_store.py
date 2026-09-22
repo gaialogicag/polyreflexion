@@ -16,6 +16,7 @@ from polyrx.config import (
     DatasetConfig,
     EngineConfig,
     ExperimentConfig,
+    FieldMap,
     MetaLayerConfig,
     MetaPrompts,
     PathsConfig,
@@ -34,6 +35,7 @@ def register() -> ConfigStore:
     cs.store(group="experiment", name="base_experiment", node=ExperimentConfig)
     cs.store(group="backends", name="base_backends", node=BackendsConfig)
     cs.store(group="dataset", name="base_dataset", node=DatasetConfig)
+    cs.store(name="base_field_map", node=FieldMap)
     cs.store(group="engine", name="base_engine", node=EngineConfig)
     cs.store(group="meta", name="base_meta", node=MetaLayerConfig)
     cs.store(group="paths", name="base_paths", node=PathsConfig)

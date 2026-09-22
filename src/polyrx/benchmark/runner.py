@@ -1,4 +1,9 @@
-"""Run OpenToM benchmark across direct and reflexion conditions."""
+"""Run a benchmark across the configured conditions.
+
+Dataset-neutral: items arrive as :class:`~polyrx.datasets.base.Item` from
+whichever adapter the dataset config names, and nothing here knows which
+benchmark it is running.
+"""
 
 from __future__ import annotations
 
@@ -10,21 +15,22 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from polyrx.benchmark.judge import OpenToMJudge, normalize_label
+from polyrx.benchmark.judge import Judge, normalize_label
 from polyrx.benchmark.meta_trace_io import (
     MetaTraceRecord,
     load_meta_trace,
     meta_trace_path,
     save_meta_trace,
 )
-from polyrx.benchmark.opentom_loader import (
-    OpenToMItem,
-    extend_story_sample,
-    load_items,
-    sample_stories,
-)
 from polyrx.conditions import Condition, ConditionRegistry
-from polyrx.config import PathsConfig, PostProcessConfig, PromptsConfig, ReportConfig
+from polyrx.config import (
+    DatasetConfig,
+    PathsConfig,
+    PostProcessConfig,
+    PromptsConfig,
+    ReportConfig,
+)
+from polyrx.datasets.base import DatasetAdapter, Item, get_adapter, sample_by_group
 from polyrx.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyrx.meta.prompts import MetaPromptRegistry
 from polyrx.models.base import LLMClient
@@ -65,9 +71,11 @@ def summary_key_for_condition(condition: str, config: BenchmarkConfig) -> str:
 
 @dataclass
 class BenchmarkConfig:
-    """Configuration for an OpenToM benchmark run."""
+    """Configuration for one benchmark run, whatever the dataset."""
 
-    num_stories: int = 10
+    #: Which dataset to score, and how to parse it.
+    dataset: DatasetConfig = field(default_factory=DatasetConfig)
+    num_items: int = 10
     seed: int = 42
     reflexion_depth: int = 1
     max_workers: int = 4
@@ -80,8 +88,11 @@ class BenchmarkConfig:
     meta_prompt_profile: str = "default"
     # Resolved templates, composed by Hydra from conf/prompts/.
     prompts: PromptsConfig = field(default_factory=PromptsConfig)
-    # When set, sample ``num_stories`` new stories excluding these IDs (extend mode).
-    exclude_story_ids: frozenset[str] = frozenset()
+    # When set, sample ``num_items`` new items excluding these IDs (extend mode).
+    # Extend mode: sample new items, skipping these.
+    exclude_item_ids: frozenset[str] = frozenset()
+    # Merge mode: score exactly these items, so columns stay comparable.
+    only_item_ids: frozenset[str] = frozenset()
     # Where results, caches and datasets live. Kept on the config so a run can
     # be redirected (tests, scratch dirs) without changing the process CWD.
     paths: PathsConfig = field(default_factory=PathsConfig)
@@ -163,9 +174,9 @@ def _answer_question(
     prompts: PromptRegistry,
     *,
     context: str,
-    item: OpenToMItem,
+    item: Item,
 ) -> str:
-    prompt = prompts.opentom_qa(
+    prompt = prompts.qa(
         context=context,
         question=item.question,
         label_space=item.label_space,
@@ -180,7 +191,7 @@ def _backends_for_conditions(conditions: tuple[str, ...], config: BenchmarkConfi
 
 def _summary_cache_path(
     summary_key: str,
-    story_id: str,
+    item_id: str,
     depth: int,
     *,
     namespace: str = "",
@@ -196,11 +207,11 @@ def _summary_cache_path(
     folder = f"{summary_key}_d{depth}"
     cache_dir = root / namespace / folder if namespace else root / folder
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"{story_id}.txt"
+    return cache_dir / f"{item_id}.txt"
 
 
 def _build_summaries(
-    stories: dict[str, str],
+    items: dict[str, str],
     config: BenchmarkConfig,
     prompts: PromptRegistry,
 ) -> dict[str, dict[str, str]]:
@@ -231,25 +242,25 @@ def _build_summaries(
         print(
             f"Building {'meta-reflexion' if is_meta else 'reflexion'} summaries "
             f"key={summary_key} (backend={backend}, depth={depth}{budget_note}) "
-            f"for {len(stories)} stories..."
+            f"for {len(items)} items..."
         )
         client = _client(backend, config.use_stub)
-        for i, (story_id, narrative) in enumerate(stories.items(), start=1):
+        for i, (item_id, context) in enumerate(items.items(), start=1):
             cache_path = _summary_cache_path(
-                summary_key, story_id, depth, namespace=config.cache_namespace, paths=config.paths
+                summary_key, item_id, depth, namespace=config.cache_namespace, paths=config.paths
             )
             if cache_path.exists():
-                print(f"  [{summary_key}] story {i}/{len(stories)}: {story_id} (cached)")
-                summaries[story_id][summary_key] = cache_path.read_text(encoding="utf-8")
+                print(f"  [{summary_key}] story {i}/{len(items)}: {item_id} (cached)")
+                summaries[item_id][summary_key] = cache_path.read_text(encoding="utf-8")
                 continue
-            print(f"  [{summary_key}] story {i}/{len(stories)}: {story_id}")
+            print(f"  [{summary_key}] story {i}/{len(items)}: {item_id}")
             if is_meta:
                 seed_summary = None
                 prior_key = prior_key_by_summary.get(summary_key)
                 if prior_key is not None:
                     prior_path = _summary_cache_path(
                         prior_key,
-                        story_id,
+                        item_id,
                         depth,
                         namespace=config.cache_namespace,
                         paths=config.paths,
@@ -257,8 +268,7 @@ def _build_summaries(
                     if prior_path.exists():
                         seed_summary = prior_path.read_text(encoding="utf-8")
                         print(
-                            f"  [{summary_key}] story {i}/{len(stories)}: "
-                            f"continuing from {prior_key}"
+                            f"  [{summary_key}] story {i}/{len(items)}: continuing from {prior_key}"
                         )
                 # `is_meta` is exactly `meta_cycles is not None`; restate it so
                 # the type checker can see the budget is a real number here.
@@ -266,7 +276,7 @@ def _build_summaries(
                 summary, meta_result = _run_meta_summary(
                     client,
                     prompts,
-                    narrative,
+                    context,
                     depth=depth,
                     max_workers=config.max_workers,
                     use_stub=config.use_stub,
@@ -279,17 +289,17 @@ def _build_summaries(
                 summary = _run_reflexion_summary(
                     client,
                     prompts,
-                    narrative,
+                    context,
                     depth=depth,
                     max_workers=config.max_workers,
                 )
                 # One retry with a stricter reminder if the model collapses into token salad.
                 if looks_degenerate(summary, config.postprocess.degeneracy):
                     print(
-                        f"  [{summary_key}] story {i}/{len(stories)}: degenerate summary, retrying..."
+                        f"  [{summary_key}] story {i}/{len(items)}: degenerate summary, retrying..."
                     )
                     stricter = (
-                        narrative + "\n\nReminder: write plain English about the story only. "
+                        context + "\n\nReminder: write plain English about the story only. "
                         "No math, codes, segment IDs, or puzzle formatting."
                     )
                     summary = _run_reflexion_summary(
@@ -299,7 +309,7 @@ def _build_summaries(
                         depth=depth,
                         max_workers=config.max_workers,
                     )
-            summaries[story_id][summary_key] = summary
+            summaries[item_id][summary_key] = summary
             cache_path.write_text(summary, encoding="utf-8")
     return dict(summaries)
 
@@ -307,7 +317,7 @@ def _build_summaries(
 def _run_reflexion_summary(
     client: LLMClient,
     prompts: PromptRegistry,
-    narrative: str,
+    context: str,
     *,
     depth: int,
     max_workers: int,
@@ -319,13 +329,13 @@ def _run_reflexion_summary(
         max_depth=depth,
         max_workers=max_workers,
     ) as engine:
-        return engine.run(narrative).summary
+        return engine.run(context).summary
 
 
 def _run_meta_summary(
     client: LLMClient,
     prompts: PromptRegistry,
-    narrative: str,
+    context: str,
     *,
     depth: int,
     max_workers: int,
@@ -369,13 +379,13 @@ def _run_meta_summary(
         # as the seed cycle, then runs one new cycle at index N.
         start_index = max(0, max_cycles - 2) if max_cycles >= 2 else 0
         result: MetaResult = controller.continue_from_summary(
-            narrative,
+            context,
             seed_summary,
             additional_cycles=1,
             start_index=start_index,
         )
     else:
-        result = controller.run(narrative)
+        result = controller.run(context)
     return result.final_answer, result
 
 
@@ -405,22 +415,22 @@ def load_meta_traces_for_run(
         return {}
     _, depth, _ = job
     traces: dict[str, MetaTraceRecord] = {}
-    for story_id in run.summaries:
+    for item_id in run.summaries:
         cache_path = _summary_cache_path(
             summary_key,
-            story_id,
+            item_id,
             depth,
             namespace=run.config.cache_namespace,
             paths=run.config.paths,
         )
         trace = load_meta_trace(meta_trace_path(cache_path))
         if trace is not None:
-            traces[story_id] = trace
+            traces[item_id] = trace
     return traces
 
 
 def backfill_meta_traces(
-    stories: dict[str, str],
+    items: dict[str, str],
     config: BenchmarkConfig,
     prompts: PromptRegistry,
     *,
@@ -445,19 +455,19 @@ def backfill_meta_traces(
             continue
         backend, depth, meta_cycles = job
         client = _client(backend, config.use_stub)
-        print(f"Backfilling meta traces key={summary_key} for {len(stories)} stories...")
-        for i, (story_id, narrative) in enumerate(stories.items(), start=1):
+        print(f"Backfilling meta traces key={summary_key} for {len(items)} items...")
+        for i, (item_id, context) in enumerate(items.items(), start=1):
             cache_path = _summary_cache_path(
-                summary_key, story_id, depth, namespace=config.cache_namespace, paths=config.paths
+                summary_key, item_id, depth, namespace=config.cache_namespace, paths=config.paths
             )
             trace_path = meta_trace_path(cache_path)
             if trace_path.exists() and not force:
                 continue
-            print(f"  [{summary_key}] story {i}/{len(stories)}: {story_id}")
+            print(f"  [{summary_key}] story {i}/{len(items)}: {item_id}")
             summary, meta_result = _run_meta_summary(
                 client,
                 prompts,
-                narrative,
+                context,
                 depth=depth,
                 max_workers=config.max_workers,
                 use_stub=config.use_stub,
@@ -472,52 +482,62 @@ def backfill_meta_traces(
     return written
 
 
+def load_dataset_items(config: BenchmarkConfig) -> tuple[list[Item], DatasetAdapter]:
+    """Fetch the configured dataset and sample the items this run scores.
+
+    Sampling honours ``dataset.sample_by``: a dataset whose items share a
+    passage is sampled by passage, so every question about a text is scored
+    together and its summary is built once.
+    """
+    from polyrx.data.fetch import DatasetFetcher
+
+    adapter = get_adapter(config.dataset)
+    data_dir = config.paths.resolved("data_dir")
+    fetcher = DatasetFetcher(data_dir, verify=config.dataset.verify_checksums)
+    path = fetcher.fetch_dataset(config.dataset)
+    all_items = adapter.load(path)
+
+    items = sample_by_group(
+        all_items,
+        count=config.num_items,
+        seed=config.seed,
+        exclude=set(config.exclude_item_ids) or None,
+        only=set(config.only_item_ids) or None,
+        group_key=config.dataset.sample_by,
+    )
+    return items, adapter
+
+
 def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
-    """Execute the OpenToM pilot benchmark."""
+    """Execute a benchmark run for whatever dataset is configured."""
     started = datetime.now(UTC).isoformat()
     prompts = PromptRegistry(config.prompts.reflexion)
-    all_items = load_items()
-    if config.exclude_story_ids:
-        items = extend_story_sample(
-            all_items,
-            set(config.exclude_story_ids),
-            num_additional=config.num_stories,
-            seed=config.seed,
-        )
-    else:
-        items = sample_stories(all_items, num_stories=config.num_stories, seed=config.seed)
-
-    stories: dict[str, str] = {}
-    for item in items:
-        stories[item.story_id] = item.narrative
+    items, adapter = load_dataset_items(config)
+    contexts: dict[str, str] = {item.item_id: item.context for item in items}
 
     need_summaries = any(uses_summary_condition(c, config) for c in config.conditions)
     summaries: dict[str, dict[str, str]] = {}
     if need_summaries:
-        summaries = _build_summaries(stories, config, prompts)
+        summaries = _build_summaries(contexts, config, prompts)
 
     needed_aliases = _backends_for_conditions(config.conditions, config) | {"judge"}
     clients = {alias: _client(alias, config.use_stub) for alias in sorted(needed_aliases)}
-    judge = OpenToMJudge(clients["judge"], prompts)
+    judge = Judge(clients["judge"], prompts, adapter)
 
     tasks = [(item, condition) for item in items for condition in config.conditions]
     results_by_key: dict[tuple[str, str], dict] = {}
 
-    def process(item: OpenToMItem, condition: str) -> tuple[str, str, dict]:
+    def process(item: Item, condition: str) -> tuple[str, str, dict]:
         backend = resolve(condition, config).backend
         client = clients[backend]
         if uses_summary_condition(condition, config):
-            context = summaries[item.story_id][resolve(condition, config).summary_key]
+            context = summaries[item.item_id][resolve(condition, config).summary_key]
         else:
-            context = item.narrative
+            context = item.context
         prediction = _answer_question(client, prompts, context=context, item=item)
-        verdict = judge.evaluate(
-            gold=item.gold_label,
-            prediction=prediction,
-            label_space=item.label_space,
-        )
+        verdict = judge.evaluate(prediction=prediction, item=item)
         return (
-            item.story_id,
+            item.item_id,
             item.question,
             {
                 "condition": condition,
@@ -526,7 +546,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             },
         )
 
-    print(f"Answering {len(tasks)} question×condition pairs...")
+    print(f"Answering {len(tasks)} item×condition pairs...")
     done = 0
     with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
         futures = {
@@ -534,14 +554,14 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
         }
         for future in as_completed(futures):
             item, condition = futures[future]
-            story_id, question, payload = future.result()
-            key = (story_id, question)
+            item_id, question, payload = future.result()
+            key = (item_id, question)
             if key not in results_by_key:
                 results_by_key[key] = {
-                    "story_id": story_id,
+                    "item_id": item_id,
                     "question": question,
                     "gold_label": item.gold_label,
-                    "question_type": item.question_type,
+                    "group": item.group,
                     "label_space": item.label_space,
                     "predictions": {},
                     "judgments": {},
@@ -555,7 +575,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     finished = datetime.now(UTC).isoformat()
     return BenchmarkRun(
         config=config,
-        results=sorted(results_by_key.values(), key=lambda r: (r["story_id"], r["question"])),
+        results=sorted(results_by_key.values(), key=lambda r: (r["item_id"], r["question"])),
         summaries=summaries,
         started_at=started,
         finished_at=finished,
@@ -567,7 +587,7 @@ def load_run(path: Path) -> BenchmarkRun:
     payload = json.loads(path.read_text(encoding="utf-8"))
     cfg = payload["config"]
     config = BenchmarkConfig(
-        num_stories=cfg.get("num_stories", 10),
+        num_items=cfg.get("num_items", 10),
         seed=cfg.get("seed", 42),
         reflexion_depth=cfg.get("reflexion_depth", 1),
         max_workers=cfg.get("max_workers", 4),
@@ -587,12 +607,12 @@ def load_run(path: Path) -> BenchmarkRun:
 
 def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
     """Merge predictions/judgments/summaries from ``extra`` into ``base``."""
-    by_key = {(r["story_id"], r["question"]): dict(r) for r in base.results}
+    by_key = {(r["item_id"], r["question"]): dict(r) for r in base.results}
     for row in extra.results:
-        key = (row["story_id"], row["question"])
+        key = (row["item_id"], row["question"])
         if key not in by_key:
             by_key[key] = {
-                "story_id": row["story_id"],
+                "item_id": row["item_id"],
                 "question": row["question"],
                 "gold_label": row["gold_label"],
                 "question_type": row["question_type"],
@@ -606,14 +626,14 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
 
     merged_summaries: dict[str, dict[str, str]] = defaultdict(dict)
     for source in (base.summaries, extra.summaries):
-        for story_id, backends in source.items():
-            merged_summaries[story_id].update(backends)
+        for item_id, backends in source.items():
+            merged_summaries[item_id].update(backends)
 
     conditions = tuple(dict.fromkeys([*base.config.conditions, *extra.config.conditions]))
-    merged_story_count = len({r["story_id"] for r in by_key.values()})
+    merged_story_count = len({r["item_id"] for r in by_key.values()})
     return BenchmarkRun(
         config=BenchmarkConfig(
-            num_stories=merged_story_count,
+            num_items=merged_story_count,
             seed=base.config.seed,
             reflexion_depth=max(base.config.reflexion_depth, extra.config.reflexion_depth),
             max_workers=base.config.max_workers,
@@ -622,7 +642,7 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             cache_namespace=base.config.cache_namespace or extra.config.cache_namespace,
             meta_prompt_profile=extra.config.meta_prompt_profile or base.config.meta_prompt_profile,
         ),
-        results=sorted(by_key.values(), key=lambda r: (r["story_id"], r["question"])),
+        results=sorted(by_key.values(), key=lambda r: (r["item_id"], r["question"])),
         summaries=dict(merged_summaries),
         started_at=base.started_at or extra.started_at,
         finished_at=extra.finished_at or base.finished_at,
@@ -631,7 +651,12 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
 
 #: Config fields that describe *this process* rather than *this experiment*,
 #: and so do not belong in a results file.
-_RUNTIME_ONLY_FIELDS = ("exclude_story_ids", "condition_registry", "prompts")
+_RUNTIME_ONLY_FIELDS = (
+    "exclude_item_ids",
+    "only_item_ids",
+    "condition_registry",
+    "prompts",
+)
 
 
 def drop_conditions(run: BenchmarkRun, conditions: set[str]) -> BenchmarkRun:
@@ -685,10 +710,11 @@ def unique_stamp(output_dir: Path, prefix: str) -> str:
 
 
 def save_run(run: BenchmarkRun, output_dir: Path) -> tuple[Path, Path]:
-    """Persist raw JSON results and return paths."""
+    """Persist raw results, named after the dataset that produced them."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = unique_stamp(output_dir, "opentom")
-    json_path = output_dir / f"opentom_{stamp}.json"
+    prefix = run.config.dataset.name
+    stamp = unique_stamp(output_dir, prefix)
+    json_path = output_dir / f"{prefix}_{stamp}.json"
     payload = {
         "config": _config_to_dict(run.config),
         "provenance": (run.provenance or Provenance.collect()).to_dict(),
@@ -698,4 +724,4 @@ def save_run(run: BenchmarkRun, output_dir: Path) -> tuple[Path, Path]:
         "results": run.results,
     }
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return json_path, output_dir / f"opentom_report_{stamp}.md"
+    return json_path, output_dir / f"{prefix}_report_{stamp}.md"

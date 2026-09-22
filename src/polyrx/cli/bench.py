@@ -1,4 +1,4 @@
-"""Single Hydra entry point for both benchmark suites.
+"""Single Hydra entry point for every benchmark.
 
 Replaces four argparse scripts (``run_opentom_benchmark.py``,
 ``run_gpqa_benchmark.py``, ``run_opentom_meta.py``, ``run_gpqa_meta.py``).  The
@@ -12,7 +12,7 @@ Offline smoke test, no API key needed::
 
     polyrx-bench experiment=smoke
 
-The published GPQA suite::
+A GPQA run::
 
     polyrx-bench experiment=gpqa experiment.num_items=100 \\
         experiment.cache_namespace=gpqa_v1 experiment.detailed=true
@@ -47,11 +47,11 @@ from polyrx.resources import find_conf_dir
 
 register()
 
-#: ``merge_from=latest`` resolves to the newest run file of the same suite.
+#: ``merge_from=latest`` resolves to the newest run file of the same dataset.
 _LATEST = "latest"
 
 
-def _resolve_run_path(value: str, results_dir: Path, suite: str) -> Path:
+def _resolve_run_path(value: str, results_dir: Path, dataset: str) -> Path:
     """Turn ``merge_from`` / ``extend_from`` into a concrete run file.
 
     Accepts a literal path or the sentinel ``latest``.  Chaining sweeps by hand
@@ -63,12 +63,12 @@ def _resolve_run_path(value: str, results_dir: Path, suite: str) -> Path:
         if not path.is_file():
             raise SystemExit(f"Run file not found: {path}")
         return path
-    candidates = sorted(results_dir.glob(f"{suite}_*.json"))
+    candidates = sorted(results_dir.glob(f"{dataset}_*.json"))
     # Exclude derived report files that share the prefix.
     candidates = [p for p in candidates if "_report_" not in p.name and "_detailed_" not in p.name]
     if not candidates:
         raise SystemExit(
-            f"No previous {suite} run found in {results_dir}. "
+            f"No previous {dataset} run found in {results_dir}. "
             f"Run once without merge_from/extend_from first."
         )
     return candidates[-1]
@@ -166,7 +166,12 @@ def _model_info(cfg: RootConfig) -> list[ModelInfo]:
     return infos
 
 
-def _run_opentom(cfg: RootConfig) -> int:
+def _run_suite(cfg: RootConfig) -> int:
+    """Run the configured dataset through the configured conditions.
+
+    One path for every benchmark: which dataset is being scored is a config
+    decision, not a branch in the code.
+    """
     from polyrx.benchmark.detailed_report import write_detailed_report
     from polyrx.benchmark.report import write_report
     from polyrx.benchmark.runner import (
@@ -179,20 +184,27 @@ def _run_opentom(cfg: RootConfig) -> int:
     )
 
     exp = cfg.experiment
+    dataset = cfg.dataset.name
     results_dir = cfg.paths.resolved("results_dir")
     registry = _condition_registry(cfg)
     conditions = _expand_conditions(list(exp.conditions), registry)
 
     base = None
     exclude_ids: frozenset[str] = frozenset()
+    only_ids: frozenset[str] = frozenset()
     if exp.extend_from:
-        base = load_run(_resolve_run_path(exp.extend_from, results_dir, "opentom"))
-        exclude_ids = frozenset({r["story_id"] for r in base.results})
+        # Extend: add new items, skipping the ones already scored.
+        base = load_run(_resolve_run_path(exp.extend_from, results_dir, dataset))
+        exclude_ids = frozenset({r["item_id"] for r in base.results})
     elif exp.merge_from:
-        base = load_run(_resolve_run_path(exp.merge_from, results_dir, "opentom"))
+        # Merge: add conditions to the same items, or the columns are not
+        # comparable with the ones already in the run.
+        base = load_run(_resolve_run_path(exp.merge_from, results_dir, dataset))
+        only_ids = frozenset({r["item_id"] for r in base.results})
 
     config = BenchmarkConfig(
-        num_stories=exp.num_items,
+        dataset=cfg.dataset,
+        num_items=len(only_ids) if only_ids else exp.num_items,
         seed=exp.seed,
         max_workers=exp.max_workers,
         conditions=conditions,
@@ -200,7 +212,8 @@ def _run_opentom(cfg: RootConfig) -> int:
         cache_namespace=exp.cache_namespace,
         meta_prompt_profile=_prompt_set_name(),
         prompts=cfg.prompts,
-        exclude_story_ids=exclude_ids,
+        exclude_item_ids=exclude_ids,
+        only_item_ids=only_ids,
         paths=cfg.paths,
         report=cfg.report,
         postprocess=cfg.postprocess,
@@ -222,75 +235,9 @@ def _run_opentom(cfg: RootConfig) -> int:
     print(f"Saved results: {json_path}")
     print(f"Saved report:  {report_path}")
     if exp.detailed:
-        detailed = results_dir / report_path.name.replace("opentom_report_", "opentom_detailed_")
-        write_detailed_report(run, detailed)
-        print(f"Saved detailed: {detailed}")
-    _print_warnings(run.provenance)
-    return 0
-
-
-def _run_gpqa(cfg: RootConfig) -> int:
-    from polyrx.benchmark.gpqa_detailed_report import write_detailed_report
-    from polyrx.benchmark.gpqa_report import write_report
-    from polyrx.benchmark.gpqa_runner import (
-        GPQABenchmarkConfig,
-        drop_conditions,
-        enrich_run_domains,
-        load_run,
-        merge_runs,
-        run_benchmark,
-        save_run,
-    )
-
-    exp = cfg.experiment
-    results_dir = cfg.paths.resolved("results_dir")
-    registry = _condition_registry(cfg)
-    conditions = _expand_conditions(list(exp.conditions), registry)
-
-    base = None
-    exclude_ids: frozenset[str] = frozenset()
-    fixed_ids: frozenset[str] = frozenset()
-    if exp.extend_from:
-        base = load_run(_resolve_run_path(exp.extend_from, results_dir, "gpqa"))
-        exclude_ids = frozenset({r["story_id"] for r in base.results})
-    elif exp.merge_from:
-        # Merging adds conditions to the *same* questions, so reuse the item set
-        # rather than resampling — otherwise the columns are not comparable.
-        base = load_run(_resolve_run_path(exp.merge_from, results_dir, "gpqa"))
-        fixed_ids = frozenset({r["story_id"] for r in base.results})
-
-    config = GPQABenchmarkConfig(
-        num_questions=len(fixed_ids) if fixed_ids else exp.num_items,
-        seed=exp.seed,
-        max_workers=exp.max_workers,
-        conditions=conditions,
-        use_stub=exp.use_stub,
-        cache_namespace=exp.cache_namespace,
-        meta_prompt_profile=_prompt_set_name(),
-        prompts=cfg.prompts,
-        exclude_question_ids=exclude_ids,
-        fixed_question_ids=fixed_ids,
-        paths=cfg.paths,
-        report=cfg.report,
-    )
-    run = run_benchmark(config)
-    if base is not None:
-        run = merge_runs(base, run)
-    if exp.drop_conditions:
-        run = drop_conditions(run, set(exp.drop_conditions))
-    run = enrich_run_domains(run)
-
-    run.provenance = Provenance.collect(
-        models=_model_info(cfg),
-        prompts=cfg.prompts,
-        config=cfg.provenance,
-    )
-    json_path, report_path = save_run(run, results_dir)
-    write_report(run, report_path)
-    print(f"Saved results: {json_path}")
-    print(f"Saved report:  {report_path}")
-    if exp.detailed:
-        detailed = results_dir / report_path.name.replace("gpqa_report_", "gpqa_detailed_")
+        detailed = results_dir / report_path.name.replace(
+            f"{dataset}_report_", f"{dataset}_detailed_"
+        )
         write_detailed_report(run, detailed)
         print(f"Saved detailed: {detailed}")
     _print_warnings(run.provenance)
@@ -307,21 +254,15 @@ def _print_warnings(provenance: Provenance | None) -> None:
         print(f"  - {issue}")
 
 
-_SUITES = {"opentom": _run_opentom, "gpqa": _run_gpqa}
-
-
 @hydra.main(version_base="1.3", config_path=None, config_name="config")
 def _main(cfg: DictConfig) -> int:
-    """Compose the config, install the backends, run the requested suite."""
+    """Compose the config, install the backends, run the configured dataset."""
     typed: RootConfig = OmegaConf.to_object(cfg)  # type: ignore[assignment]
     _require_credentials(typed)
     set_active_backends(typed.backends, typed.postprocess)
 
-    runner = _SUITES.get(typed.experiment.suite)
-    if runner is None:
-        raise SystemExit(f"Unknown suite {typed.experiment.suite!r}. Known: {', '.join(_SUITES)}")
     print(OmegaConf.to_yaml(cfg))
-    return runner(typed)
+    return _run_suite(typed)
 
 
 def main() -> int:

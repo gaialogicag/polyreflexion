@@ -1,1 +1,1 @@
-"""OpenToM benchmark package."""
+"""Benchmark execution, scoring and reporting, for any configured dataset."""

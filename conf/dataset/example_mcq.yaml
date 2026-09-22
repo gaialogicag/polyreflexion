@@ -1,0 +1,36 @@
+# A worked example: a multiple-choice dataset added with no Python at all.
+#
+# Copy this file, point it at your source, and describe the columns. The
+# tabular adapter reads CSV, TSV, JSON and JSONL. Run it with:
+#
+#     polyrx-bench dataset=example_mcq
+#
+# Use your own adapter only when the source needs real parsing -- see
+# conf/dataset/gpqa.yaml for a case that does.
+
+defaults:
+  - base_dataset
+
+name: example_mcq
+adapter: tabular
+group_name: subject
+sample_by: item
+
+fields:
+  question: question
+  # The column naming the correct option, as a letter.
+  answer: answer
+  # Option texts, in the order they should be shown.
+  choices: [option_a, option_b, option_c, option_d]
+  # Optional: the column to break results down by.
+  group: subject
+
+primary:
+  repo_id: cais/mmlu
+  filename: all/test-00000-of-00001.parquet
+  revision: main
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

@@ -1,4 +1,4 @@
-"""Qualitative analyses for OpenToM benchmark runs (flips, summaries, markers)."""
+"""Qualitative analyses for a benchmark run (flips, summaries, markers)."""
 
 from __future__ import annotations
 
@@ -57,9 +57,9 @@ CONTRADICTION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
 class FlipRecord:
     """One question where accuracy changed vs a baseline condition."""
 
-    story_id: str
+    item_id: str
     question: str
-    question_type: str
+    group: str
     gold_label: str
     baseline_pred: str
     condition_pred: str
@@ -94,7 +94,7 @@ class SummaryLengthStats:
 class MarkerStoryHit:
     """One story where heuristic markers fired in a summary."""
 
-    story_id: str
+    item_id: str
     summary_key: str
     markers: tuple[str, ...]
     excerpt: str
@@ -126,9 +126,9 @@ def collect_flips(
         if base_ok is None or cond_ok is None or base_ok == cond_ok:
             continue
         record = FlipRecord(
-            story_id=row["story_id"],
+            item_id=row["item_id"],
             question=row["question"],
-            question_type=row.get("question_type", ""),
+            group=row.get("group", ""),
             gold_label=row.get("gold_label", ""),
             baseline_pred=_prediction(row, baseline),
             condition_pred=_prediction(row, condition),
@@ -147,7 +147,7 @@ def inference_error_analysis(
     condition: str,
 ) -> dict[str, int | float]:
     """Compare erroneous ToM inference (wrong on location/multihop types)."""
-    scoped = [r for r in results if r.get("question_type") in INFERENCE_QUESTION_TYPES]
+    scoped = [r for r in results if r.get("group") in INFERENCE_QUESTION_TYPES]
     base_wrong = cond_wrong = 0
     fixed = new_errors = persistent_same = changed_error = 0
     for row in scoped:
@@ -224,7 +224,7 @@ def stories_with_markers(
 ) -> list[MarkerStoryHit]:
     """Return stories whose summary matches at least one heuristic marker."""
     hits: list[MarkerStoryHit] = []
-    for story_id, story_summaries in sorted(summaries.items()):
+    for item_id, story_summaries in sorted(summaries.items()):
         text = story_summaries.get(summary_key, "").strip()
         if not text:
             continue
@@ -233,7 +233,7 @@ def stories_with_markers(
             continue
         hits.append(
             MarkerStoryHit(
-                story_id=story_id,
+                item_id=item_id,
                 summary_key=summary_key,
                 markers=markers,
                 excerpt=text[:excerpt_chars].replace("\n", " ")
@@ -252,7 +252,7 @@ def meta_adds_markers_vs_reflexion(
 ) -> list[MarkerStoryHit]:
     """Stories where meta summary has markers that plain reflexion summary lacks."""
     added: list[MarkerStoryHit] = []
-    for story_id, story_summaries in sorted(summaries.items()):
+    for item_id, story_summaries in sorted(summaries.items()):
         reflex = story_summaries.get(reflexion_key, "")
         meta = story_summaries.get(meta_key, "")
         if not meta.strip():
@@ -264,7 +264,7 @@ def meta_adds_markers_vs_reflexion(
         if set(meta_markers) - set(reflex_markers) or (meta_markers and not reflex_markers):
             added.append(
                 MarkerStoryHit(
-                    story_id=story_id,
+                    item_id=item_id,
                     summary_key=meta_key,
                     markers=meta_markers,
                     excerpt=meta[:160].replace("\n", " ") + ("…" if len(meta) > 160 else ""),
@@ -274,7 +274,7 @@ def meta_adds_markers_vs_reflexion(
 
 
 def count_by_type(records: list[FlipRecord]) -> Counter[str]:
-    return Counter(r.question_type for r in records)
+    return Counter(r.group for r in records)
 
 
 def _escape_cell(text: str, max_len: int = 72) -> str:

@@ -13,7 +13,6 @@ defaults:
   - override /prompts/meta: gpqa
 
 experiment:
-  suite: gpqa
   num_items: 10
   seed: 42
   max_workers: 4

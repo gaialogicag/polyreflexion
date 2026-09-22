@@ -81,6 +81,9 @@ polyrx-bench experiment=opentom experiment.num_items=20 \
 # GPQA Diamond (graduate biology / physics / chemistry)
 polyrx-bench experiment=gpqa experiment.num_items=100 \
     experiment.cache_namespace=gpqa_v1 experiment.detailed=true
+
+# Anything else you have configured
+polyrx-bench dataset=my_dataset experiment.num_items=50
 ```
 
 Override any setting on the command line, and sweep with `-m`:
@@ -221,8 +224,47 @@ a results file without redacting anything.
 
 ## Datasets
 
-Neither dataset is redistributed here. Both are fetched from the Hugging Face
-Hub at a pinned revision and verified against `data/MANIFEST.json`.
+Nothing in the code knows which benchmark it is running. A dataset is a config
+file naming an adapter and a source:
+
+```bash
+polyrx-bench dataset=gpqa
+polyrx-bench dataset=my_dataset          # your own conf/dataset/my_dataset.yaml
+```
+
+**Adding one usually needs no Python.** The `tabular` adapter reads CSV, TSV,
+JSON and JSONL, from the Hub or from a local path, and is driven entirely by a
+column mapping. Copy `conf/dataset/example_mcq.yaml`:
+
+```yaml
+name: my_dataset
+adapter: tabular
+group_name: subject        # what to break results down by
+sample_by: item            # `context` when several items share a passage
+
+fields:
+  context: passage         # optional: the text to reason over
+  question: q
+  answer: a
+  label_space: allowed     # or omit, and give a fixed label_space
+  group: subject
+  # multiple choice, either layout:
+  # choices: [option_a, option_b, option_c, option_d]
+  # correct_choice: "Correct Answer"
+  # incorrect_choices: ["Wrong 1", "Wrong 2", "Wrong 3"]
+
+primary:
+  path: /data/my_dataset.csv     # or repo_id + filename + revision
+```
+
+Write an adapter only when the source needs real parsing. Both shipped ones do,
+for reasons worth knowing: OpenToM's allowed answers depend on the question,
+and GPQA's official release and public mirror have different shapes. Subclass
+`DatasetAdapter`, implement `load` and `match_label`, decorate with
+`@register_adapter`, and name it in your dataset config.
+
+Neither shipped dataset is redistributed here. Both are fetched from the
+Hugging Face Hub at a pinned revision and verified against `data/MANIFEST.json`.
 
 ```bash
 polyrx-manifest pin       # resolve each dataset to a commit, record its sha256
@@ -268,7 +310,8 @@ the old prompt.
 | `polyrx/meta/` | Judges, interpretation, geometry, strategy, controller, trace, rendering |
 | `polyrx/config.py` (prompt dataclasses) | Schema the prompt YAML is checked against |
 | `polyrx/models/` | LLM clients and the role registry |
-| `polyrx/benchmark/` | OpenToM and GPQA loaders, runners, judges, metrics, reports |
+| `polyrx/datasets/` | The dataset interface, the config-driven tabular adapter, and one adapter per awkward source |
+| `polyrx/benchmark/` | Runner, judge, metrics and reports — one of each, dataset-neutral |
 | `polyrx/data/` | Pinned, checksum-verified dataset fetching |
 | `polyrx/provenance.py` | What a reader needs to reproduce a run |
 | `polyrx/charts.py` | Optional matplotlib access; charts are skipped, never fatal |

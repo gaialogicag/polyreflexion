@@ -45,6 +45,20 @@ jobs:
             'experiment.conditions=[nano_direct],[nano_reflexion]'
           polyrx-ask --stub "offline smoke test"
           polyrx-reflect --stub "offline smoke test"
+      - name: A new dataset needs config only
+        run: |
+          mkdir -p /tmp/ds
+          printf 'passage,q,a,allowed,kind\n"Ann hid it.","Is it hidden?","Yes","Yes, No",basic\n' > /tmp/ds/t.csv
+          cat > conf/dataset/_ci_tmp.yaml <<'EOF'
+          defaults:
+            - base_dataset
+          name: _ci_tmp
+          adapter: tabular
+          fields: {context: passage, question: q, answer: a, label_space: allowed, group: kind}
+          primary: {path: /tmp/ds/t.csv}
+          EOF
+          polyrx-bench experiment=smoke dataset=_ci_tmp experiment.num_items=1
+          rm conf/dataset/_ci_tmp.yaml
       - name: The condition grid matches its lock
         run: polyrx-conditions check
       - name: Prompt sets are selectable and overridable

@@ -149,10 +149,9 @@ class StubLLMClient:
         if "Gold answer:" in prompt:
             gold = prompt.split("Gold answer:")[1].split("\n")[0].strip()
             pred = prompt.split("Model answer:")[1].split("\nAllowed")[0].strip()
-            label_space = prompt.split("Allowed answers:")[1].split("\n")[0].strip()
             from polyrx.benchmark.judge import labels_match
 
-            correct = labels_match(pred, gold, label_space)
+            correct = labels_match(pred, gold)
             return json.dumps({"correct": correct, "normalized_answer": pred})
         return "[LLM response]"
 
@@ -170,12 +169,9 @@ class PromptRegistry:
         self._boundaries = dict(prompts.boundaries)
         self._perspectives = {Perspective(k): v for k, v in prompts.perspectives.items()}
         self._summary = prompts.summary
-        # The QA and judge templates are suite-specific: a given set carries
-        # OpenToM's pair, GPQA's pair, or neither (the interactive set).
-        self._opentom_qa = prompts.opentom_qa
-        self._opentom_judge = prompts.opentom_judge
-        self._gpqa_qa = prompts.gpqa_qa
-        self._gpqa_judge = prompts.gpqa_judge
+        # Empty in the interactive set, which has no scoring pass.
+        self._qa = prompts.qa
+        self._judge = prompts.judge
 
     def boundary(self, edge: frozenset[Perspective]) -> str:
         return self._boundaries[_BOUNDARY_KEYS[edge]]
@@ -198,41 +194,24 @@ class PromptRegistry:
             corner_b=corner_b,
         )
 
-    def opentom_qa(self, *, context: str, question: str, label_space: str) -> str:
-        if not self._opentom_qa:
-            raise KeyError("opentom_qa template missing from prompt registry")
-        return self._opentom_qa.format(
-            context=context,
-            question=question,
-            label_space=label_space,
-        )
+    def has_judge_template(self) -> bool:
+        """Whether a judge template is configured for this prompt set."""
+        return bool(self._judge)
 
-    def opentom_judge(self, *, gold: str, prediction: str, label_space: str) -> str:
-        if not self._opentom_judge:
-            raise KeyError("opentom_judge template missing from prompt registry")
-        return self._opentom_judge.format(
-            gold=gold,
-            prediction=prediction,
-            label_space=label_space,
-        )
+    def qa(self, *, context: str, question: str, label_space: str) -> str:
+        """Ask the question, given whatever context the condition produced."""
+        if not self._qa:
+            raise KeyError(
+                "This prompt set has no `qa` template, so it cannot score a "
+                "benchmark. Select one that does, e.g. prompts/reflexion=default."
+            )
+        return self._qa.format(context=context, question=question, label_space=label_space)
 
-    def gpqa_qa(self, *, context: str, question: str, label_space: str) -> str:
-        if not self._gpqa_qa:
-            raise KeyError("gpqa_qa template missing from prompt registry")
-        return self._gpqa_qa.format(
-            context=context,
-            question=question,
-            label_space=label_space,
-        )
-
-    def gpqa_judge(self, *, gold: str, prediction: str, label_space: str) -> str:
-        if not self._gpqa_judge:
-            raise KeyError("gpqa_judge template missing from prompt registry")
-        return self._gpqa_judge.format(
-            gold=gold,
-            prediction=prediction,
-            label_space=label_space,
-        )
+    def judge(self, *, gold: str, prediction: str, label_space: str) -> str:
+        """Ask a model whether an answer matches the gold label."""
+        if not self._judge:
+            raise KeyError("This prompt set has no `judge` template.")
+        return self._judge.format(gold=gold, prediction=prediction, label_space=label_space)
 
 
 class ReflexionEngine:

@@ -61,7 +61,7 @@ summary: |-
   {corner_b}
 
   Write one concise plain-English integrated scientific reasoning summary for solving this problem. Cover the governing principle, critical constraints, and how distractors fail. Do NOT state a final answer letter (A/B/C/D).
-gpqa_qa: |-
+qa: |-
   You are answering a graduate-level science multiple-choice question (GPQA).
 
   Reasoning context (may be the raw problem or an integrated analysis):
@@ -76,7 +76,7 @@ gpqa_qa: |-
   - Reply with ONLY one letter from the allowed answers.
   - Prefer the form: \\boxed{{LETTER}}
   - No explanation, no analysis, no extra words.
-gpqa_judge: |-
+judge: |-
   You are evaluating a GPQA multiple-choice answer.
 
   Gold answer: {gold}

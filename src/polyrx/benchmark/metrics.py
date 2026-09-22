@@ -1,4 +1,4 @@
-"""Aggregate metrics for OpenToM benchmark runs."""
+"""Aggregate metrics for a benchmark run, per condition and per group."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def compute_metrics(results: list[dict]) -> dict[str, ConditionMetrics]:
             by_condition[condition].append(
                 {
                     "correct": row["judgments"][condition]["correct"],
-                    "question_type": row["question_type"],
+                    "group": row["group"],
                 }
             )
 
@@ -40,7 +40,7 @@ def compute_metrics(results: list[dict]) -> dict[str, ConditionMetrics]:
 
         by_type: dict[str, list[bool]] = defaultdict(list)
         for r in rows:
-            by_type[r["question_type"]].append(r["correct"])
+            by_type[r["group"]].append(r["correct"])
 
         type_scores = {
             qtype: {

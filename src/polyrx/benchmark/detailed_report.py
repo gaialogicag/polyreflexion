@@ -1,4 +1,4 @@
-"""Detailed markdown analysis for OpenToM benchmark runs."""
+"""Detailed markdown analysis for a benchmark run, whatever the dataset."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def _flip_examples_table(records: list[FlipRecord], *, report: ReportConfig) -> 
     ]
     for rec in records[: report.max_flip_examples]:
         lines.append(
-            f"| {rec.story_id[: report.id_display_chars]} | {rec.question_type} | {rec.gold_label} | "
+            f"| {rec.item_id[: report.id_display_chars]} | {rec.group} | {rec.gold_label} | "
             f"{rec.baseline_pred} | {rec.condition_pred} | "
             f"{_escape_cell(rec.question, report.flip_question_chars)} |"
         )
@@ -251,7 +251,7 @@ def _render_marker_section(
         lines.append("")
         for hit in added[: report.max_marker_examples]:
             lines.append(
-                f"- `{hit.story_id[: report.id_display_chars]}` — {_escape_cell(hit.excerpt, report.excerpt_chars)}"
+                f"- `{hit.item_id[: report.id_display_chars]}` — {_escape_cell(hit.excerpt, report.excerpt_chars)}"
             )
         if len(added) > report.max_marker_examples:
             lines.append(f"- *…and {len(added) - report.max_marker_examples} more.*")
@@ -272,7 +272,7 @@ def write_detailed_report(
     report = report or getattr(run.config, "report", None) or ReportConfig()
     # Standard charts + summary table land alongside the detailed doc.
     summary_path = report_path.with_name(
-        report_path.name.replace("opentom_detailed_", "opentom_report_")
+        report_path.name.replace("{prefix}_detailed_", "{prefix}_report_")
     )
     write_report(run, summary_path, report)
 
@@ -282,13 +282,13 @@ def write_detailed_report(
         conditions = [baseline, *conditions]
 
     lines: list[str] = [
-        "# OpenToM Detailed Benchmark Report",
+        "# Detailed Benchmark Report",
         "",
         f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         "## Run configuration",
         "",
-        f"- Stories: {run.config.num_stories} (seed {run.config.seed})",
+        f"- Stories: {run.config.num_items} (seed {run.config.seed})",
         f"- Conditions: `{', '.join(run.config.conditions)}`",
         f"- Cache namespace: `{run.config.cache_namespace or '(legacy — no namespace)'}`",
         f"- Meta prompt profile: `{run.config.meta_prompt_profile}`",
@@ -431,7 +431,7 @@ def write_detailed_report(
                 "",
                 "## Contradiction and belief–reality tension",
                 "",
-                "OpenToM meta runs use a contradiction check on negation boundaries during "
+                "Meta runs use a contradiction check on negation boundaries during "
                 "summary generation, but those traces are not persisted in benchmark JSON. "
                 "Below: heuristic scan of final summary text for conflict / gap language.",
                 "",
@@ -488,7 +488,7 @@ def write_detailed_report(
                 f"- Meta traces available: **{attr.stories_with_trace}** / "
                 f"{attr.repaired_stories} repaired stories "
                 f"({attr.stories_without_trace} missing — run "
-                f"`python backfill_meta_traces.py <opentom_run.json>`)"
+                f"`polyrx-backfill <run.json>`)"
             )
             if attr.stories_with_trace == 0:
                 lines.append("")
@@ -523,7 +523,7 @@ def write_detailed_report(
                 lines.append("|-------|--------:|-------------|-------------|---------------|")
                 for ex in attr.example_trajectories:
                     lines.append(
-                        f"| {ex['story_id'][: report.id_display_chars]} | {ex['repaired_count']} | "
+                        f"| {ex['item_id'][: report.id_display_chars]} | {ex['repaired_count']} | "
                         f"{ex['trajectory']} | {ex['termination']} | {ex['repair_dims']} |"
                     )
                 lines.append("")
@@ -541,7 +541,7 @@ def write_detailed_report(
                 "",
                 f"![Scores by condition]({rel(charts / 'scores_by_condition.png')})",
                 "",
-                f"![Scores by question type]({rel(charts / 'scores_by_question_type.png')})",
+                f"![Scores by group]({rel(charts / 'scores_by_group.png')})",
                 "",
             ]
         )
@@ -550,15 +550,10 @@ def write_detailed_report(
         [
             "## Methodology notes",
             "",
-            "- **Engine prompts:** OpenToM `prompts.json` (integrated story summaries).",
-            "- **Meta profile `opentom`:** `meta/prompts_opentom.json` — judges and boundaries "
-            "tuned for false beliefs, locations, and witness structure.",
-            "- **Meta profile `default`:** general `prompts_meta.json`.",
-            "- **QA judge:** gpt-5-mini (OpenToM label match).",
-            "- **Polycontextural judges:** gpt-4o (`meta_judge`).",
-            f"- **Summary cache:** `results/cache/summaries/{run.config.cache_namespace or '<legacy>'}/`",
-            "",
-            f"Standard report: `{summary_path.name}`",
+            f"- **Dataset:** `{run.config.dataset.name}` (adapter `{run.config.dataset.adapter}`).",
+            f"- **Meta prompt set:** `{run.config.meta_prompt_profile}`.",
+            f"- **Conditions:** {', '.join(run.config.conditions)}.",
+            f"- **Cache namespace:** `{run.config.cache_namespace or '(none)'}`.",
         ]
     )
 
