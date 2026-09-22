@@ -20,9 +20,12 @@ polyrx-bench experiment=smoke
 
 These are enforced in review, and mirrored in `.cursor/rules/` for Cursor users.
 
-1. **Configuration lives in `conf/`, not in code.** No `os.environ.get` outside
-   `polyreflexion/config.py`. The one exception is reading an API key by the
-   variable name the config gives.
+1. **Configuration lives in `conf/` at the repository root, not in code.** No
+   `os.environ.get` outside `polyreflexion/config.py`. The one exception is
+   reading an API key by the variable name the config gives.
+   An experiment config carries `# @package _global_` and is composed last, so
+   it can override any group; a group config composes onto its schema
+   (`base_backends`, `base_dataset`, …) so a typo fails at composition.
 2. **Derive, do not tabulate.** Anything computable from a condition's backend,
    depth and meta budget is a property on `Condition`, not another dictionary.
 3. **The meta layer selects; the engine produces.** Nothing in `meta/` writes

@@ -1,3 +1,6 @@
+defaults:
+  - base_paths
+
 # All paths are relative to `root`, which defaults to the launch directory.
 root: .
 data_dir: data

@@ -1,3 +1,6 @@
+defaults:
+  - base_meta
+
 # Interactive mode: produce the best single reply, not a survey of views.
 profile: ask
 max_cycles: 3

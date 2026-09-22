@@ -25,6 +25,7 @@ from polyreflexion.benchmark.runner import (
     _build_summaries,
     _client,
     resolve,
+    unique_stamp,
     uses_summary_condition,
 )
 from polyreflexion.config import PathsConfig
@@ -120,9 +121,7 @@ def run_benchmark(config: GPQABenchmarkConfig) -> GPQABenchmarkRun:
             seed=config.seed,
         )
     else:
-        items = sample_questions(
-            all_items, num_questions=config.num_questions, seed=config.seed
-        )
+        items = sample_questions(all_items, num_questions=config.num_questions, seed=config.seed)
 
     # One "story" per question: reflexion summarizes the full MCQ prompt.
     problems: dict[str, str] = {item.question_id: item.prompt_text for item in items}
@@ -152,18 +151,21 @@ def run_benchmark(config: GPQABenchmarkConfig) -> GPQABenchmarkRun:
             prediction=prediction,
             label_space=item.label_space,
         )
-        return item.question_id, item.question, {
-            "condition": condition,
-            "prediction": prediction,
-            "judgment": verdict,
-        }
+        return (
+            item.question_id,
+            item.question,
+            {
+                "condition": condition,
+                "prediction": prediction,
+                "judgment": verdict,
+            },
+        )
 
     print(f"Answering {len(tasks)} question×condition pairs...")
     done = 0
     with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
         futures = {
-            pool.submit(process, item, condition): (item, condition)
-            for item, condition in tasks
+            pool.submit(process, item, condition): (item, condition) for item, condition in tasks
         }
         for future in as_completed(futures):
             item, condition = futures[future]
@@ -259,8 +261,7 @@ def merge_runs(base: GPQABenchmarkRun, extra: GPQABenchmarkRun) -> GPQABenchmark
             conditions=conditions,
             use_stub=base.config.use_stub or extra.config.use_stub,
             cache_namespace=base.config.cache_namespace or extra.config.cache_namespace,
-            meta_prompt_profile=extra.config.meta_prompt_profile
-            or base.config.meta_prompt_profile,
+            meta_prompt_profile=extra.config.meta_prompt_profile or base.config.meta_prompt_profile,
         ),
         results=sorted(by_key.values(), key=lambda r: (r["story_id"], r["question"])),
         summaries=dict(merged_summaries),
@@ -284,7 +285,7 @@ def _config_to_dict(config: GPQABenchmarkConfig) -> dict:
 def save_run(run: GPQABenchmarkRun, output_dir: Path) -> tuple[Path, Path]:
     """Persist raw JSON results and return (json_path, report_path)."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    stamp = unique_stamp(output_dir, "gpqa")
     json_path = output_dir / f"gpqa_{stamp}.json"
     payload = {
         "config": _config_to_dict(run.config),
@@ -316,7 +317,9 @@ def enrich_run_domains(run: GPQABenchmarkRun) -> GPQABenchmarkRun:
     for row in run.results:
         qid = row.get("question_id") or row.get("story_id")
         domain = domains.get(qid or "")
-        if (domain and domain != "unspecified" and row.get("question_type") != domain) or (domain and row.get("question_type") in (None, "", "unspecified")):
+        if (domain and domain != "unspecified" and row.get("question_type") != domain) or (
+            domain and row.get("question_type") in (None, "", "unspecified")
+        ):
             row["question_type"] = domain
             updated += 1
     if updated:
@@ -349,7 +352,4 @@ def drop_conditions(
 
 def has_labeled_domains(results: list[dict]) -> bool:
     """True when at least one result has a real High-level domain label."""
-    return any(
-        (row.get("question_type") or "unspecified") != "unspecified"
-        for row in results
-    )
+    return any((row.get("question_type") or "unspecified") != "unspecified" for row in results)

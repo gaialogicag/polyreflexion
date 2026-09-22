@@ -88,9 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.stub:
         engine_client = StubLLMClient()
         # Scripted path: refine on cycle 0, expand on cycle 1, converge after.
-        judge_client = StubMetaClient(
-            triples=[("A", "F", "R"), ("A", "W", "R"), ("A", "W", "W")]
-        )
+        judge_client = StubMetaClient(triples=[("A", "F", "R"), ("A", "W", "R"), ("A", "W", "W")])
     else:
         engine_client = get_client(args.engine)
         judge_client = get_client(args.judge)
@@ -98,9 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     prompts = PromptRegistry()
 
     def engine_factory(depth: int) -> ReflexionEngine:
-        return ReflexionEngine(
-            engine_client, prompts=prompts, max_depth=depth, max_workers=workers
-        )
+        return ReflexionEngine(engine_client, prompts=prompts, max_depth=depth, max_workers=workers)
 
     controller = build_meta_controller(
         engine_factory,

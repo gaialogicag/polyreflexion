@@ -3,13 +3,11 @@
 data/*
 !data/MANIFEST.json
 
-# Regenerable: summaries, judge traces, Hydra job directories, logs.
-results/cache/
-results/hydra/
-results/*.log
-
-# Published runs, reports and charts under results/ ARE tracked -- they are the
-# evidence behind the numbers in the README.
+# Run outputs are not tracked in this repository. Published results live
+# wherever the paper does; this repo ships the method and the means to
+# reproduce it.
+results/
+dist/
 
 __pycache__/
 *.py[cod]

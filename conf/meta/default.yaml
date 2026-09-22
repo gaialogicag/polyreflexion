@@ -1,3 +1,6 @@
+defaults:
+  - base_meta
+
 profile: default
 max_cycles: 2
 engine_depth: 1

@@ -39,6 +39,24 @@ jobs:
       - run: pip install -e ".[viz,gpqa]"
       - name: Offline benchmark run
         run: polyrx-bench experiment=smoke
+      - name: Offline sweep, and the interactive tools
+        run: |
+          polyrx-bench -m experiment=smoke \
+            'experiment.conditions=[nano_direct],[nano_reflexion]'
+          polyrx-ask --stub "offline smoke test"
+          polyrx-reflect --stub "offline smoke test"
+
+  no-extras:
+    # The viz and gpqa extras must be genuinely optional: a base install has to
+    # produce a report, with the figures skipped rather than an ImportError.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: polyrx-bench experiment=smoke
 
   build:
     runs-on: ubuntu-latest
@@ -51,7 +69,7 @@ jobs:
       - run: python -m build
       - name: Check metadata
         run: twine check dist/*
-      - name: Prompt templates and config tree must ship in the wheel
+      - name: Wheel must carry the prompts and must not carry the config tree
         run: |
           python - <<'PY'
           import zipfile, glob, sys
@@ -60,10 +78,14 @@ jobs:
           required = [
               "polyreflexion/prompts/reflexion.json",
               "polyreflexion/prompts/meta_default.json",
-              "polyreflexion/conf/config.yaml",
           ]
           missing = [r for r in required if r not in names]
           if missing:
               sys.exit(f"missing from wheel: {missing}")
-          print(f"{wheel}: packaged data present")
+          # conf/ lives at the repository root on purpose; shipping a second
+          # copy inside the wheel would make it ambiguous which one is live.
+          leaked = [n for n in names if "/conf/" in n]
+          if leaked:
+              sys.exit(f"config tree must not be packaged: {leaked[:5]}")
+          print(f"{wheel}: prompts packaged, config tree correctly absent")
           PY

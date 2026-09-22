@@ -122,9 +122,7 @@ class Provenance:
     """The full provenance block written into every run JSON."""
 
     polyreflexion_version: str = __version__
-    recorded_at: str = field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    recorded_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     git: GitInfo = field(default_factory=GitInfo)
     python: str = field(default_factory=lambda: sys.version.split()[0])
     platform: str = field(default_factory=platform.platform)

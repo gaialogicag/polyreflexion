@@ -6,13 +6,19 @@
 #   polyrx-bench -m experiment=gpqa 'experiment.conditions=[nano_meta_c1],[nano_meta_c2]'
 
 defaults:
-  - experiment: opentom
+  # The structured schema from polyreflexion.config, registered in conf_store.
+  # Composing onto it is what makes a typo in a YAML key fail here rather than
+  # at the line that eventually reads it.
+  - base_config
   - backends: openai
   - dataset: opentom
   - engine: default
   - meta: default
   - paths: default
   - _self_
+  # Last on purpose: an experiment is a global patch, so it has to be composed
+  # after the groups it overrides.
+  - experiment: opentom
 
 hydra:
   job:

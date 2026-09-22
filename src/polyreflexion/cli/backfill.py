@@ -45,7 +45,9 @@ def main(argv: list[str] | None = None) -> int:
 
     run = load_run(args.run_json)
     story_ids = sorted(run.summaries.keys())
-    narratives = {item.story_id: item.narrative for item in load_items() if item.story_id in story_ids}
+    narratives = {
+        item.story_id: item.narrative for item in load_items() if item.story_id in story_ids
+    }
     missing = [sid for sid in story_ids if sid not in narratives]
     if missing:
         raise SystemExit(f"Could not load narratives for stories: {missing[:5]}")

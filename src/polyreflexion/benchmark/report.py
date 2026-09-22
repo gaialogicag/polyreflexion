@@ -6,10 +6,9 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-
 from polyreflexion.benchmark.metrics import compute_metrics
 from polyreflexion.benchmark.runner import CONDITIONS, BenchmarkRun
+from polyreflexion.charts import pyplot
 
 
 def _ordered_conditions(metrics: dict) -> list[str]:
@@ -20,6 +19,9 @@ def _ordered_conditions(metrics: dict) -> list[str]:
 
 
 def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
+    plt = pyplot()
+    if plt is None:
+        return
     conditions = _ordered_conditions(metrics)
     acc_scores = [metrics[c].accuracy for c in conditions]
 
@@ -36,9 +38,10 @@ def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
 
 
 def _grouped_chart_by_type(metrics: dict, chart_path: Path) -> None:
-    types = sorted(
-        {t for m in metrics.values() for t in m.by_type}
-    )
+    plt = pyplot()
+    if plt is None:
+        return
+    types = sorted({t for m in metrics.values() for t in m.by_type})
     conditions = _ordered_conditions(metrics)
     fig, ax = plt.subplots(figsize=(12, 6))
     width = 0.18
@@ -59,6 +62,9 @@ def _grouped_chart_by_type(metrics: dict, chart_path: Path) -> None:
 
 
 def _comparison_chart(metrics: dict, chart_path: Path) -> None:
+    plt = pyplot()
+    if plt is None:
+        return
     labels = _ordered_conditions(metrics)
     scores = [metrics[c].accuracy for c in labels]
     if not labels:
@@ -100,6 +106,7 @@ def write_report(run: BenchmarkRun, report_path: Path) -> Path:
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
         return p.relative_to(report_path.parent).as_posix()
+
     lines = [
         "# OpenToM Benchmark Report",
         "",
@@ -122,9 +129,7 @@ def write_report(run: BenchmarkRun, report_path: Path) -> Path:
 
     for name in _ordered_conditions(metrics):
         m = metrics[name]
-        lines.append(
-            f"| {name} | {m.accuracy:.3f} | {m.correct} | {m.total} |"
-        )
+        lines.append(f"| {name} | {m.accuracy:.3f} | {m.correct} | {m.total} |")
 
     present = {c for row in run.results for c in row.get("predictions", {})}
     pred_cols = [c for c in CONDITIONS if c in present] + sorted(

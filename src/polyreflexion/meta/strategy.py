@@ -67,9 +67,7 @@ class StrategyPlanner:
 
     def _expand(self, evaluation: PolyEvaluation, question: str, answer: str) -> Decision:
         """Expansion: one new input per (non-contradictory) negation boundary."""
-        statements, dropped = self._boundaries.negations(
-            evaluation, answer, question=question
-        )
+        statements, dropped = self._boundaries.negations(evaluation, answer, question=question)
         feedback = evaluation.feedback_block()
         inputs = [
             self._prompts.expand_input(

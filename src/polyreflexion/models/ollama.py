@@ -23,9 +23,7 @@ def extract_final_answer(raw: str) -> str:
     text = raw.strip()
 
     # Prefer everything after the last closed thinking block when present.
-    close_tags = list(
-        re.finditer(r"</(?:redacted_)?thinking>|</think>", text, flags=re.IGNORECASE)
-    )
+    close_tags = list(re.finditer(r"</(?:redacted_)?thinking>|</think>", text, flags=re.IGNORECASE))
     if close_tags:
         text = text[close_tags[-1].end() :].strip()
     else:
@@ -177,6 +175,5 @@ class OllamaClient:
                 print(f"Ollama URL error (attempt {attempt}/{self.retries}): {exc}")
                 time.sleep(min(30, 5 * attempt))
         raise TimeoutError(
-            f"Ollama request timed out after {self.retries} attempts "
-            f"(timeout={self.timeout}s)"
+            f"Ollama request timed out after {self.retries} attempts (timeout={self.timeout}s)"
         ) from last_error

@@ -6,11 +6,10 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-
 from polyreflexion.benchmark.gpqa_runner import GPQABenchmarkRun, has_labeled_domains
 from polyreflexion.benchmark.metrics import compute_metrics
 from polyreflexion.benchmark.runner import CONDITIONS
+from polyreflexion.charts import pyplot
 
 
 def _ordered_conditions(metrics: dict) -> list[str]:
@@ -20,6 +19,9 @@ def _ordered_conditions(metrics: dict) -> list[str]:
 
 
 def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
+    plt = pyplot()
+    if plt is None:
+        return
     conditions = _ordered_conditions(metrics)
     acc_scores = [metrics[c].accuracy for c in conditions]
 
@@ -36,14 +38,15 @@ def _bar_chart_by_condition(metrics: dict, chart_path: Path) -> None:
 
 
 def _grouped_chart_by_domain(metrics: dict, chart_path: Path) -> None:
+    plt = pyplot()
+    if plt is None:
+        return
     domains = sorted({t for m in metrics.values() for t in m.by_type})
     conditions = _ordered_conditions(metrics)
     fig, ax = plt.subplots(figsize=(12, 6))
     width = 0.18
     for i, condition in enumerate(conditions):
-        scores = [
-            metrics[condition].by_type.get(t, {}).get("accuracy", 0.0) for t in domains
-        ]
+        scores = [metrics[condition].by_type.get(t, {}).get("accuracy", 0.0) for t in domains]
         offsets = [j + (i - len(conditions) / 2) * width for j in range(len(domains))]
         ax.bar(offsets, scores, width, label=condition)
 
@@ -59,6 +62,9 @@ def _grouped_chart_by_domain(metrics: dict, chart_path: Path) -> None:
 
 
 def _comparison_chart(metrics: dict, chart_path: Path) -> None:
+    plt = pyplot()
+    if plt is None:
+        return
     labels = _ordered_conditions(metrics)
     scores = [metrics[c].accuracy for c in labels]
     if not labels:
@@ -102,6 +108,7 @@ def write_report(run: GPQABenchmarkRun, report_path: Path) -> Path:
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
         return p.relative_to(report_path.parent).as_posix()
+
     lines = [
         "# GPQA Diamond Benchmark Report",
         "",

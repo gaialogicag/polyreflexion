@@ -220,9 +220,7 @@ def _render_marker_section(
     ]
     reflex_hits = stories_with_markers(summaries, reflexion_key, patterns)
     reflex_rate = len(reflex_hits) / story_count if story_count else 0.0
-    lines.append(
-        f"| {reflexion_key} | {len(reflex_hits)} | {reflex_rate:.0%} | — |"
-    )
+    lines.append(f"| {reflexion_key} | {len(reflex_hits)} | {reflex_rate:.0%} | — |")
     for meta_key in meta_keys:
         if meta_key not in next(iter(summaries.values()), {}):
             continue
@@ -374,13 +372,14 @@ def write_detailed_report(
         c for c in ranked if c != baseline and c in {*run.config.conditions, *metrics}
     ]
     meta_conds = [c for c in compare_conditions if c.startswith("nano_meta")]
-    reflex_conds = [c for c in compare_conditions if "reflexion" in c and not c.startswith("nano_meta")]
+    reflex_conds = [
+        c for c in compare_conditions if "reflexion" in c and not c.startswith("nano_meta")
+    ]
 
     if baseline in metrics and compare_conditions:
         lines.extend(["", "## Question flips vs baseline", ""])
         lines.append(
-            f"Baseline: `{baseline}`. "
-            "**Wrong → right** = fixed; **right → wrong** = regression."
+            f"Baseline: `{baseline}`. **Wrong → right** = fixed; **right → wrong** = regression."
         )
         lines.append("")
         # Meta first, then reflexion variants.
@@ -518,9 +517,11 @@ def write_detailed_report(
                 lines.append("")
 
     charts = summary_path.parent / "charts"
+
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
         return p.relative_to(report_path.parent).as_posix()
+
     if charts.exists():
         lines.extend(
             [

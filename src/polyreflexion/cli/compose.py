@@ -13,7 +13,7 @@ from omegaconf import OmegaConf
 
 from polyreflexion.conf_store import register
 from polyreflexion.config import RootConfig
-from polyreflexion.resources import CONF_DIR
+from polyreflexion.resources import find_conf_dir
 
 
 def load_config(overrides: list[str] | None = None) -> RootConfig:
@@ -25,6 +25,10 @@ def load_config(overrides: list[str] | None = None) -> RootConfig:
         Hydra-style overrides, e.g. ``["meta=ask", "backends.nano.model=gpt-4o"]``.
     """
     register()
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONF_DIR)):
+    try:
+        conf_dir = find_conf_dir()
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from None
+    with initialize_config_dir(version_base="1.3", config_dir=str(conf_dir)):
         cfg = compose(config_name="config", overrides=overrides or [])
     return OmegaConf.to_object(cfg)  # type: ignore[return-value]

@@ -33,9 +33,7 @@ CACHE_DIR = Path("data") / "gpqa"
 #: then recovered from a third repo listed under ``extras``.
 GPQA_DATASET = DatasetConfig(
     name="gpqa",
-    primary=DatasetFile(
-        repo_id="Idavidrein/gpqa", filename="gpqa_diamond.csv", gated=True
-    ),
+    primary=DatasetFile(repo_id="Idavidrein/gpqa", filename="gpqa_diamond.csv", gated=True),
     fallbacks=[DatasetFile(repo_id="aradhye/gpqa_diamond", filename="gpqa_diamond.csv")],
     extras=[
         DatasetFile(
@@ -220,9 +218,11 @@ def _item_from_mirror(
     qid = _question_id(problem, answer)
     domain = "unspecified"
     if domain_map:
-        domain = domain_map.get(normalize_stem(stem)) or domain_map.get(
-            normalize_stem(problem)
-        ) or "unspecified"
+        domain = (
+            domain_map.get(normalize_stem(stem))
+            or domain_map.get(normalize_stem(problem))
+            or "unspecified"
+        )
     return GPQAItem(
         question_id=qid,
         prompt_text=problem if "Choices:" in problem else _format_prompt(stem, choices),

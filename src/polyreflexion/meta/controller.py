@@ -71,9 +71,7 @@ class MetaController:
         self._config = config or MetaConfig()
         self._prompts = prompts or MetaPromptRegistry()
         self._interpreter = Interpreter(
-            reinterpret_full_positive_on_cycle0=(
-                self._config.reinterpret_full_positive_on_cycle0
-            )
+            reinterpret_full_positive_on_cycle0=(self._config.reinterpret_full_positive_on_cycle0)
         )
         self._geometry = GeometryMapper()
         self._planner = StrategyPlanner(
@@ -250,9 +248,7 @@ class MetaController:
             )
             global_value = GlobalValue.R
 
-        topology = self._geometry.map(
-            global_value, frozenset(evaluation.positives()), ()
-        )
+        topology = self._geometry.map(global_value, frozenset(evaluation.positives()), ())
         seed_cycle = MetaCycle(
             index=start_index,
             input_text=text,
@@ -292,9 +288,7 @@ class MetaController:
 
         cycles: list[MetaCycle] = [seed_cycle]
         previous_summary: str | None = seed_summary
-        seen_states: set[tuple[GlobalValue, str]] = {
-            (global_value, summary_hash(seed_summary))
-        }
+        seen_states: set[tuple[GlobalValue, str]] = {(global_value, summary_hash(seed_summary))}
         reset_used = False
         drift_streak = 0
         termination = "budget_exhausted"
@@ -333,10 +327,7 @@ class MetaController:
             topology = self._geometry.map(
                 global_value, frozenset(evaluation.positives()), previous_path
             )
-            drifted = (
-                self._config.drift_check_enabled
-                and not self._on_topic(text, result.summary)
-            )
+            drifted = self._config.drift_check_enabled and not self._on_topic(text, result.summary)
             cycle = MetaCycle(
                 index=index,
                 input_text=chosen_input,
@@ -398,15 +389,11 @@ class MetaController:
 
     # --------------------------------------------------------------- helpers
 
-    def _run_engine_batch(
-        self, inputs: list[str], depth: int
-    ) -> list[tuple[str, ReflexionResult]]:
+    def _run_engine_batch(self, inputs: list[str], depth: int) -> list[tuple[str, ReflexionResult]]:
         """Run the engine on every input; expansion inputs run concurrently."""
         if len(inputs) == 1:
             return [self._run_one(inputs[0], depth)]
-        with ThreadPoolExecutor(
-            max_workers=len(inputs), thread_name_prefix="meta-engine"
-        ) as pool:
+        with ThreadPoolExecutor(max_workers=len(inputs), thread_name_prefix="meta-engine") as pool:
             futures = [pool.submit(self._run_one, text, depth) for text in inputs]
             return [future.result() for future in futures]
 
@@ -428,9 +415,7 @@ class MetaController:
             return True
         return not reply.startswith("no")
 
-    def _finalize(
-        self, text: str, cycles: list[MetaCycle], termination: str
-    ) -> MetaResult:
+    def _finalize(self, text: str, cycles: list[MetaCycle], termination: str) -> MetaResult:
         """Select the final answer: most positive judgments, ties -> latest cycle."""
         if not cycles:
             return MetaResult(

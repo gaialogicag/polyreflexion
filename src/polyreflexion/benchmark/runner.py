@@ -295,10 +295,11 @@ def _build_summaries(
                 )
                 # One retry with a stricter reminder if the model collapses into token salad.
                 if looks_degenerate(summary):
-                    print(f"  [{summary_key}] story {i}/{len(stories)}: degenerate summary, retrying...")
+                    print(
+                        f"  [{summary_key}] story {i}/{len(stories)}: degenerate summary, retrying..."
+                    )
                     stricter = (
-                        narrative
-                        + "\n\nReminder: write plain English about the story only. "
+                        narrative + "\n\nReminder: write plain English about the story only. "
                         "No math, codes, segment IDs, or puzzle formatting."
                     )
                     summary = _run_reflexion_summary(
@@ -527,18 +528,21 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             prediction=prediction,
             label_space=item.label_space,
         )
-        return item.story_id, item.question, {
-            "condition": condition,
-            "prediction": prediction,
-            "judgment": verdict,
-        }
+        return (
+            item.story_id,
+            item.question,
+            {
+                "condition": condition,
+                "prediction": prediction,
+                "judgment": verdict,
+            },
+        )
 
     print(f"Answering {len(tasks)} question×condition pairs...")
     done = 0
     with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
         futures = {
-            pool.submit(process, item, condition): (item, condition)
-            for item, condition in tasks
+            pool.submit(process, item, condition): (item, condition) for item, condition in tasks
         }
         for future in as_completed(futures):
             item, condition = futures[future]
@@ -628,8 +632,7 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             conditions=conditions,
             use_stub=base.config.use_stub or extra.config.use_stub,
             cache_namespace=base.config.cache_namespace or extra.config.cache_namespace,
-            meta_prompt_profile=extra.config.meta_prompt_profile
-            or base.config.meta_prompt_profile,
+            meta_prompt_profile=extra.config.meta_prompt_profile or base.config.meta_prompt_profile,
         ),
         results=sorted(by_key.values(), key=lambda r: (r["story_id"], r["question"])),
         summaries=dict(merged_summaries),
@@ -676,10 +679,27 @@ def _config_to_dict(config: BenchmarkConfig) -> dict:
     return data
 
 
+def unique_stamp(output_dir: Path, prefix: str) -> str:
+    """A run identifier that no existing run in ``output_dir`` already uses.
+
+    Timestamps have second resolution, and a Hydra sweep launches its jobs well
+    inside one second — without this, job #2 silently overwrites job #1's
+    results file and the sweep looks like it produced one run.
+    """
+    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    if not (output_dir / f"{prefix}_{stamp}.json").exists():
+        return stamp
+    for suffix in range(1, 1000):
+        candidate = f"{stamp}_{suffix}"
+        if not (output_dir / f"{prefix}_{candidate}.json").exists():
+            return candidate
+    raise RuntimeError(f"Could not find a free run name for {prefix}_{stamp} in {output_dir}")
+
+
 def save_run(run: BenchmarkRun, output_dir: Path) -> tuple[Path, Path]:
     """Persist raw JSON results and return paths."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    stamp = unique_stamp(output_dir, "opentom")
     json_path = output_dir / f"opentom_{stamp}.json"
     payload = {
         "config": _config_to_dict(run.config),

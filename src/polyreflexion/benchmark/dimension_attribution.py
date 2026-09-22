@@ -73,11 +73,7 @@ def transitions_between(
 
 def repair_dimensions(transitions: list[LabelTransition]) -> tuple[str, ...]:
     """Dimensions that flipped from negative to positive (judge repair)."""
-    return tuple(
-        t.dimension.value
-        for t in transitions
-        if not t.from_positive and t.to_positive
-    )
+    return tuple(t.dimension.value for t in transitions if not t.from_positive and t.to_positive)
 
 
 def repaired_story_ids(

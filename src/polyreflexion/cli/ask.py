@@ -51,9 +51,7 @@ def _wrap(text: str, width: int = 76) -> str:
 def print_comparison(result: MetaResult) -> None:
     """Side-by-side style overview: baseline reflexion vs. meta reflexion."""
     baseline = result.cycles[0] if result.cycles else None
-    selected = next(
-        (c for c in result.cycles if c.index == result.selected_cycle), None
-    )
+    selected = next((c for c in result.cycles if c.index == result.selected_cycle), None)
 
     print("\n" + "=" * 78)
     print("QUESTION")
@@ -100,8 +98,11 @@ def print_comparison(result: MetaResult) -> None:
         same = result.selected_cycle == 0
         print(
             "\nComparison: the meta layer "
-            + ("kept the baseline answer." if same else
-               f"replaced the baseline with cycle {result.selected_cycle}.")
+            + (
+                "kept the baseline answer."
+                if same
+                else f"replaced the baseline with cycle {result.selected_cycle}."
+            )
         )
     print("-" * 78)
 
@@ -137,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_client = StubLLMClient()
         judge_client = StubMetaClient(triples=[("A", "F", "R"), ("A", "W", "W")])
     else:
-        engine_client = get_client("nano")       # reflexion + meta cycles
+        engine_client = get_client("nano")  # reflexion + meta cycles
         judge_client = get_client("meta_judge")  # polycontextural judges
 
     # Answer-oriented templates: best reply to the question, not a survey of views.

@@ -39,7 +39,9 @@ cp .env.example .env        # put OPENAI_API_KEY here
 ```
 
 Extras: `viz` adds chart and topology rendering (matplotlib); `gpqa` adds the
-parquet reader used to recover GPQA domain labels.
+parquet reader used to recover GPQA domain labels. Both are genuinely optional
+— without `viz`, reports and traces are still written and the figures are
+skipped with a note.
 
 For a local open-weights backend, install [Ollama](https://ollama.com) and pull
 a model: `ollama pull phi4-mini-reasoning`. Serving with
@@ -48,8 +50,13 @@ concurrently.
 
 ## Run it
 
-Everything is configured through [Hydra](https://hydra.cc). The config tree
-lives in `src/polyreflexion/conf/`.
+Everything is configured through [Hydra](https://hydra.cc). The config tree is
+`conf/` at the repository root — read it, copy it, edit it. It is deliberately
+not packaged inside `src/`: configs are the experiment, not library internals.
+
+Commands are run from a checkout. The `conf/` directory is located by searching
+upward from the working directory, so running from a subdirectory works too.
+Point `POLYRX_CONF` at a tree somewhere else to override the search.
 
 ```bash
 # Offline smoke test: no API key, no network, deterministic stub responses.
@@ -177,16 +184,17 @@ the old prompt.
 
 | Path | Role |
 |---|---|
+| `conf/` | Hydra config tree (repository root, not packaged) |
 | `polyreflexion/engine.py` | `ReflexionEngine` — the recursive tree and its parallel pools |
 | `polyreflexion/conditions.py` | The experiment grid as data |
 | `polyreflexion/config.py` | Every configurable knob, as typed dataclasses |
-| `polyreflexion/conf/` | Hydra config tree |
 | `polyreflexion/prompts/` | Engine and meta prompt templates |
 | `polyreflexion/meta/` | Judges, interpretation, geometry, strategy, controller, trace, rendering |
 | `polyreflexion/models/` | LLM clients and the role registry |
 | `polyreflexion/benchmark/` | OpenToM and GPQA loaders, runners, judges, metrics, reports |
 | `polyreflexion/data/` | Pinned, checksum-verified dataset fetching |
 | `polyreflexion/provenance.py` | What a reader needs to reproduce a run |
+| `polyreflexion/charts.py` | Optional matplotlib access; charts are skipped, never fatal |
 | `polyreflexion/cli/` | Console entry points |
 
 ## Citing

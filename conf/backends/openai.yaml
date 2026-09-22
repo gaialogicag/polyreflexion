@@ -4,6 +4,9 @@
 # Keys are read from the environment by name (`api_key_env`), so this file is
 # safe to commit and safe to copy into a results directory.
 
+defaults:
+  - base_backends
+
 nano:
   model: gpt-5.4-nano
   api_key_env: OPENAI_API_KEY

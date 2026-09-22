@@ -270,9 +270,7 @@ class ReflexionEngine:
             tree_workers = self.recommended_workers(max_depth)
             # Cap LLM concurrency separately (API rate limits / local GPU).
             llm_workers = max_workers or tree_workers
-            self._llm_pool = ThreadPoolExecutor(
-                max_workers=llm_workers, thread_name_prefix="llm"
-            )
+            self._llm_pool = ThreadPoolExecutor(max_workers=llm_workers, thread_name_prefix="llm")
             self._tree_pool = ThreadPoolExecutor(
                 max_workers=tree_workers, thread_name_prefix="tree"
             )
@@ -328,8 +326,7 @@ class ReflexionEngine:
     def _find_boundaries(self, text: str, region: Region) -> Boundaries:
         enriched = self._enriched_input(text, region)
         prompts = [
-            self._prompts.boundary(edge).format(input=enriched)
-            for edge in _BOUNDARY_EDGE_ORDER
+            self._prompts.boundary(edge).format(input=enriched) for edge in _BOUNDARY_EDGE_ORDER
         ]
         os_, ob, bs = self._parallel_llm(prompts)
         return Boundaries(
@@ -356,14 +353,16 @@ class ReflexionEngine:
             )
 
         boundaries = self._find_boundaries(text, region)
-        children = self._parallel_tree([
-            lambda p=p: self._reflexion(
-                text,
-                region.corner(p, boundaries),
-                depth + 1,
-            )
-            for p in _PERSPECTIVE_ORDER
-        ])
+        children = self._parallel_tree(
+            [
+                lambda p=p: self._reflexion(
+                    text,
+                    region.corner(p, boundaries),
+                    depth + 1,
+                )
+                for p in _PERSPECTIVE_ORDER
+            ]
+        )
 
         return Node(
             region=region,
@@ -382,7 +381,9 @@ class ReflexionEngine:
         return "\n".join(parts)
 
 
-def load_prompts(path: Path | None = None) -> tuple[
+def load_prompts(
+    path: Path | None = None,
+) -> tuple[
     dict[frozenset[Perspective], str],
     dict[Perspective, str],
 ]:
@@ -490,8 +491,7 @@ if __name__ == "__main__":
     import sys
 
     sample = (
-        "The sky appears blue because sunlight scatters in the atmosphere. "
-        "I find this beautiful."
+        "The sky appears blue because sunlight scatters in the atmosphere. I find this beautiful."
     )
     use_stub = "--stub" in sys.argv
     llm: LLMClient | Callable[[str], str] = StubLLMClient() if use_stub else OllamaClient()

@@ -11,9 +11,7 @@ REFLEXION_SUMMARY_KEY = "nano"
 META_SUMMARY_KEYS = ("nano_meta_c1", "nano_meta_c2", "nano_meta_c3", "nano_meta_c4")
 
 # Question types where wrong answers usually reflect faulty ToM inference.
-INFERENCE_QUESTION_TYPES = frozenset(
-    {"location-fo", "location-so", "multihop-fo", "multihop-so"}
-)
+INFERENCE_QUESTION_TYPES = frozenset({"location-fo", "location-so", "multihop-fo", "multihop-so"})
 
 # Heuristic markers for explicit false-belief / misread awareness in summaries.
 FALSE_BELIEF_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
@@ -238,7 +236,8 @@ def stories_with_markers(
                 story_id=story_id,
                 summary_key=summary_key,
                 markers=markers,
-                excerpt=text[:excerpt_chars].replace("\n", " ") + ("…" if len(text) > excerpt_chars else ""),
+                excerpt=text[:excerpt_chars].replace("\n", " ")
+                + ("…" if len(text) > excerpt_chars else ""),
             )
         )
     return hits

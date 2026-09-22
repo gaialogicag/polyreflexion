@@ -4,6 +4,7 @@
 # Requires: ollama serve; ollama pull phi4-mini-reasoning; ollama pull qwen2.5:7b
 
 defaults:
+  - base_backends
   - openai
   - _self_
 

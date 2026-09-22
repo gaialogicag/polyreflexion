@@ -13,11 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")  # headless-safe; rendering happens off the hot path
-import matplotlib.pyplot as plt
-
+from polyreflexion.charts import pyplot
 from polyreflexion.engine import Perspective
 from polyreflexion.meta.datatypes import GeometricArrangement, MetaResult
 
@@ -111,8 +107,14 @@ def _setup_axes(ax, title: str) -> None:
 def render_topology(result: MetaResult, out_dir: Path | str) -> list[Path]:
     """Render one PNG per cycle plus a combined evolution figure.
 
-    Returns the list of written file paths (cycle images first).
+    Returns the list of written file paths (cycle images first), or an empty
+    list when matplotlib is not installed — the trace and report are still
+    written, only the pictures are skipped.
     """
+    plt = pyplot()
+    if plt is None:
+        print("Topology renderings skipped: install polyreflexion[viz] for charts.")
+        return []
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -139,9 +141,7 @@ def render_topology(result: MetaResult, out_dir: Path | str) -> list[Path]:
         for _, prior_canonical, _, _ in steps[:position]:
             _draw_filled(ax, prior_canonical, color="lightsteelblue", alpha=0.35)
         _draw_filled(ax, canonical, color=cmap(0.65), alpha=0.75)
-        _draw_outline(
-            ax, surplus, color="crimson", linestyle="--", linewidth=1.3, alpha=0.9
-        )
+        _draw_outline(ax, surplus, color="crimson", linestyle="--", linewidth=1.3, alpha=0.9)
         path = out_dir / f"topology_cycle{index}.png"
         fig.savefig(path, dpi=150, bbox_inches="tight")
         plt.close(fig)

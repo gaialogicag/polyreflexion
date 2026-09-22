@@ -60,8 +60,7 @@ class PolyJudge:
         if self._parallel:
             with ThreadPoolExecutor(max_workers=3, thread_name_prefix="judge") as pool:
                 futures = {
-                    dim: pool.submit(self._judge_one, dim, observation)
-                    for dim in DIMENSION_ORDER
+                    dim: pool.submit(self._judge_one, dim, observation) for dim in DIMENSION_ORDER
                 }
                 judgments = {dim: future.result() for dim, future in futures.items()}
         else:

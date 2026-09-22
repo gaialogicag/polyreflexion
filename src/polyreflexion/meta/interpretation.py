@@ -61,11 +61,7 @@ class Interpreter:
         On meta cycle 1 and later, (A,W,W) is never reinterpreted; three
         positives map straight to GlobalValue W and the controller stops.
         """
-        if (
-            self._reinterpret
-            and cycle_index == 0
-            and len(evaluation.positives()) == 3
-        ):
+        if self._reinterpret and cycle_index == 0 and len(evaluation.positives()) == 3:
             evaluation = evaluation.with_negative_dialectical(_REINTERPRETATION_RATIONALE)
 
         return self._lookup[len(evaluation.positives())], evaluation

@@ -37,7 +37,7 @@ from polyreflexion.conf_store import register
 from polyreflexion.config import RootConfig
 from polyreflexion.models.registry import set_active_backends
 from polyreflexion.provenance import ModelInfo, Provenance
-from polyreflexion.resources import CONF_DIR, PROMPTS_DIR
+from polyreflexion.resources import PROMPTS_DIR, find_conf_dir
 
 register()
 
@@ -263,8 +263,8 @@ def _print_warnings(provenance: Provenance | None) -> None:
 _SUITES = {"opentom": _run_opentom, "gpqa": _run_gpqa}
 
 
-@hydra.main(version_base="1.3", config_path=str(CONF_DIR), config_name="config")
-def main(cfg: DictConfig) -> int:
+@hydra.main(version_base="1.3", config_path=None, config_name="config")
+def _main(cfg: DictConfig) -> int:
     """Compose the config, install the backends, run the requested suite."""
     typed: RootConfig = OmegaConf.to_object(cfg)  # type: ignore[assignment]
     _require_credentials(typed)
@@ -272,11 +272,25 @@ def main(cfg: DictConfig) -> int:
 
     runner = _SUITES.get(typed.experiment.suite)
     if runner is None:
-        raise SystemExit(
-            f"Unknown suite {typed.experiment.suite!r}. Known: {', '.join(_SUITES)}"
-        )
+        raise SystemExit(f"Unknown suite {typed.experiment.suite!r}. Known: {', '.join(_SUITES)}")
     print(OmegaConf.to_yaml(cfg))
     return runner(typed)
+
+
+def main() -> int:
+    """Point Hydra at the repository's ``conf/`` tree, then run.
+
+    ``@hydra.main`` resolves a relative ``config_path`` against the file it
+    decorates, which would tie the tree to the package directory. The tree
+    lives at the repository root instead, so it is added to the search path
+    here, once, as an absolute location.
+    """
+    try:
+        conf_dir = find_conf_dir()
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from None
+    sys.argv.insert(1, f"--config-dir={conf_dir}")
+    return _main()
 
 
 if __name__ == "__main__":

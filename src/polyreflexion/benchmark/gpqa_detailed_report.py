@@ -222,9 +222,7 @@ def _render_marker_section(
             summaries, meta_key, reflexion_key=reflexion_key, patterns=patterns
         )
         rate = len(meta_hits) / story_count if story_count else 0.0
-        lines.append(
-            f"| {meta_key} | {len(meta_hits)} | {rate:.0%} | +{len(added)} vs reflexion |"
-        )
+        lines.append(f"| {meta_key} | {len(meta_hits)} | {rate:.0%} | +{len(added)} vs reflexion |")
     lines.extend(["", f"### {title} — examples where meta adds markers reflexion missed", ""])
     for meta_key in meta_keys:
         if meta_key not in next(iter(summaries.values()), {}):
@@ -253,9 +251,7 @@ def write_detailed_report(
     baseline: str = "nano_direct",
 ) -> Path:
     """Write standard report plus a detailed analysis markdown file."""
-    summary_path = report_path.with_name(
-        report_path.name.replace("gpqa_detailed_", "gpqa_report_")
-    )
+    summary_path = report_path.with_name(report_path.name.replace("gpqa_detailed_", "gpqa_report_"))
     write_report(run, summary_path)
 
     metrics = compute_metrics(run.results)
@@ -383,8 +379,7 @@ def write_detailed_report(
     if baseline in metrics and compare_conditions:
         lines.extend(["", "## Question flips vs baseline", ""])
         lines.append(
-            f"Baseline: `{baseline}`. "
-            "**Wrong → right** = fixed; **right → wrong** = regression."
+            f"Baseline: `{baseline}`. **Wrong → right** = fixed; **right → wrong** = regression."
         )
         lines.append("")
         for cond in meta_conds + reflex_conds:
@@ -495,9 +490,11 @@ def write_detailed_report(
                 lines.append("")
 
     charts = summary_path.parent / "charts"
+
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
         return p.relative_to(report_path.parent).as_posix()
+
     if charts.exists():
         lines.extend(
             [

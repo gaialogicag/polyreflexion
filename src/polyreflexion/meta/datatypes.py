@@ -43,13 +43,13 @@ DIMENSION_TO_VERTEX: dict[Dimension, Perspective] = {
 
 # Display labels for the positive / negative pole of each context.
 POSITIVE_LABEL: dict[Dimension, str] = {
-    Dimension.SUBJECTIVE: "A",   # authentic
-    Dimension.OBJECTIVE: "W",    # true
+    Dimension.SUBJECTIVE: "A",  # authentic
+    Dimension.OBJECTIVE: "W",  # true
     Dimension.DIALECTICAL: "W",  # productive
 }
 NEGATIVE_LABEL: dict[Dimension, str] = {
-    Dimension.SUBJECTIVE: "F",   # inauthentic
-    Dimension.OBJECTIVE: "F",    # false
+    Dimension.SUBJECTIVE: "F",  # inauthentic
+    Dimension.OBJECTIVE: "F",  # false
     Dimension.DIALECTICAL: "R",  # redundant
 }
 
@@ -66,9 +66,9 @@ class ContextJudgment:
 
     dimension: Dimension
     positive: bool
-    label: str      # display label: A/F (subjective), W/F (objective), W/R (dialectical)
+    label: str  # display label: A/F (subjective), W/F (objective), W/R (dialectical)
     rationale: str  # must name the statements that drove the verdict
-    method: str     # "llm_judge" | "fallback" | "reinterpretation"
+    method: str  # "llm_judge" | "fallback" | "reinterpretation"
 
     @classmethod
     def make(
@@ -134,8 +134,7 @@ class PolyEvaluation:
             else:
                 status = "NOT satisfied — the next answer must fix this"
             lines.append(
-                f"- {judgment.dimension.value} ({judgment.label}, {status}): "
-                f"{judgment.rationale}"
+                f"- {judgment.dimension.value} ({judgment.label}, {status}): {judgment.rationale}"
             )
         return "\n".join(lines)
 
@@ -170,9 +169,7 @@ class PolyEvaluation:
         return PolyEvaluation(
             subjective=self.subjective,
             objective=self.objective,
-            dialectical=ContextJudgment.make(
-                Dimension.DIALECTICAL, False, rationale, method
-            ),
+            dialectical=ContextJudgment.make(Dimension.DIALECTICAL, False, rationale, method),
             reinterpreted=True,
         )
 
@@ -210,7 +207,7 @@ class TopologyState:
 
     canonical: GeometricArrangement
     surplus: GeometricArrangement  # never drives control flow in v1; kept for future meta-levels
-    path: tuple[str, ...] = ()     # moves from the root, e.g. ("S", "+OS")
+    path: tuple[str, ...] = ()  # moves from the root, e.g. ("S", "+OS")
 
     def to_dict(self) -> dict:
         return {
@@ -225,8 +222,8 @@ class BoundaryStatement:
     """A semantic boundary used as a coordinate for the next recursive cycle."""
 
     dimension: Dimension
-    origin: str            # "negation_of_positive" (expansion) | "reuse_of_negative" (refinement)
-    text: str              # the boundary description itself
+    origin: str  # "negation_of_positive" (expansion) | "reuse_of_negative" (refinement)
+    text: str  # the boundary description itself
     source_rationale: str  # judge rationale it was derived from
 
     def to_dict(self) -> dict:
@@ -242,10 +239,10 @@ class BoundaryStatement:
 class Observation:
     """Everything the judges may look at for one completed engine run."""
 
-    input_text: str                            # the original question / text
-    summary: str                               # the engine's final answer
-    corner_answers: dict[Perspective, str]     # O/S/B reasoning artifacts
-    previous_summary: str | None = None        # prior cycle's answer (dialectical context)
+    input_text: str  # the original question / text
+    summary: str  # the engine's final answer
+    corner_answers: dict[Perspective, str]  # O/S/B reasoning artifacts
+    previous_summary: str | None = None  # prior cycle's answer (dialectical context)
 
     def corners_block(self) -> str:
         """Render the corner artifacts as a compact prompt block."""
@@ -268,9 +265,9 @@ class MetaCycle:
     """One full observe -> evaluate -> decide record."""
 
     index: int
-    input_text: str                # input of the chosen candidate
-    all_inputs: tuple[str, ...]    # every input executed this cycle (expansion may run 2)
-    result: ReflexionResult        # chosen engine result (selection, never editing)
+    input_text: str  # input of the chosen candidate
+    all_inputs: tuple[str, ...]  # every input executed this cycle (expansion may run 2)
+    result: ReflexionResult  # chosen engine result (selection, never editing)
     evaluation: PolyEvaluation
     global_value: GlobalValue
     topology: TopologyState
@@ -326,9 +323,9 @@ class MetaResult:
 class MetaConfig:
     """Tunable knobs of the meta loop (all guards live here)."""
 
-    max_cycles: int = 4                 # hard recursion budget
-    engine_depth: int = 1               # reflexion depth per cycle
-    reset_depth_bonus: int = 1          # extra depth for the one F-reset re-run
+    max_cycles: int = 4  # hard recursion budget
+    engine_depth: int = 1  # reflexion depth per cycle
+    reset_depth_bonus: int = 1  # extra depth for the one F-reset re-run
     reinterpret_full_positive_on_cycle0: bool = True  # cycle-0 (A,W,W)->(A,W,R) only
     drift_check_enabled: bool = True
     max_consecutive_drifts: int = 2

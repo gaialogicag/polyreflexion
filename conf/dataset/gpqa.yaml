@@ -1,3 +1,6 @@
+defaults:
+  - base_dataset
+
 name: gpqa
 # The official release is gated: accept the terms on the Hub and set HF_TOKEN.
 # Without it the fetch falls through to the public mirror, which lacks domain

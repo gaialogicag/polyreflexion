@@ -1,3 +1,6 @@
+defaults:
+  - base_dataset
+
 name: opentom
 primary:
   repo_id: SeacowX/OpenToM

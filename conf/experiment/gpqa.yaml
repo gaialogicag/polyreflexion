@@ -1,4 +1,4 @@
-# @package experiment
+# @package _global_
 # GPQA Diamond: 198 graduate-level biology / physics / chemistry items.
 #
 # Published suite: 100 questions, seed 42, namespace gpqa_v1, profile gpqa.
@@ -11,20 +11,21 @@ defaults:
   - override /meta: gpqa
   - override /engine: gpqa
 
-suite: gpqa
-num_items: 10
-seed: 42
-max_workers: 4
-conditions:
-  - nano_direct
-  - nano_reflexion
-  - nano_reflexion_d2
-  - nano_meta_c1
-  - nano_meta_c2
-  - nano_meta_c3
-use_stub: false
-cache_namespace: ""
-detailed: false
-merge_from: null
-extend_from: null
-drop_conditions: []
+experiment:
+  suite: gpqa
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - nano_direct
+    - nano_reflexion
+    - nano_reflexion_d2
+    - nano_meta_c1
+    - nano_meta_c2
+    - nano_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []
