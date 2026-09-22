@@ -184,6 +184,77 @@ class ConditionRegistry:
         return tuple(c.name for c in self.ordered() if c.backend == group)
 
 
+# ---------------------------------------------------------------------------
+# Fidelity check against the pre-refactor lookup tables
+# ---------------------------------------------------------------------------
+
+#: The published grid exactly as the six dictionaries in the original
+#: ``benchmark/runner.py`` spelled it, recovered from commit c9a64a1.
+#:
+#: Each row is ``(backend, depth, meta_cycles, summary_key, prior_summary_key)``
+#: where ``None`` means the original table had no entry for that condition.
+#:
+#: This exists because the derivation in :class:`Condition` replaced those
+#: tables, and a derivation that is wrong by one character does not crash: it
+#: silently rebuilds summaries instead of reusing them, and lets a merge pair
+#: one condition's predictions with another condition's summaries. The failure
+#: is wrong numbers, not an error, so it has to be checked rather than noticed.
+_PUBLISHED_GRID: dict[str, tuple[str, int | None, int | None, str | None, str | None]] = {
+    "nano_direct": ("nano", None, None, None, None),
+    "nano_reflexion": ("nano", 1, None, "nano", None),
+    "nano_reflexion_d2": ("nano", 2, None, "nano_d2", None),
+    "nano_reflexion_d3": ("nano", 3, None, "nano_d3", None),
+    "nano_meta_c1": ("nano", 1, 1, "nano_meta_c1", None),
+    "nano_meta_c2": ("nano", 1, 2, "nano_meta_c2", "nano_meta_c1"),
+    "nano_meta_c3": ("nano", 1, 3, "nano_meta_c3", "nano_meta_c2"),
+    "nano_meta_c4": ("nano", 1, 4, "nano_meta_c4", "nano_meta_c3"),
+    # Legacy alias: the original tables gave it nano_meta_c2's budget and cache.
+    "nano_meta": ("nano", 1, 2, "nano_meta_c2", "nano_meta_c1"),
+    "phi_direct": ("phi", None, None, None, None),
+    "phi_reflexion": ("phi", 1, None, "phi", None),
+    "phi_reflexion_d2": ("phi", 2, None, "phi_d2", None),
+}
+
+
+def check_published_grid(registry: ConditionRegistry) -> None:
+    """Raise if the derived grid no longer matches the published one.
+
+    Called when the default registry is built, so a change that would silently
+    orphan an existing summary cache fails at import instead of at the point
+    where the numbers come out wrong.
+    """
+    problems: list[str] = []
+
+    missing = set(_PUBLISHED_GRID) - set(registry.names())
+    if missing:
+        problems.append(f"conditions dropped from the published grid: {sorted(missing)}")
+
+    for name, (backend, depth, cycles, summary_key, prior_key) in _PUBLISHED_GRID.items():
+        if name not in registry.names():
+            continue
+        spec = registry.get(name)
+        # The old tables simply omitted direct conditions, so absent means 0.
+        for label, expected, actual in (
+            ("backend", backend, spec.backend),
+            ("depth", depth or 0, spec.depth),
+            ("meta_cycles", cycles or 0, spec.meta_cycles),
+            ("summary_key", summary_key or "", spec.summary_key),
+            ("prior_summary_key", prior_key, spec.prior_summary_key),
+        ):
+            if expected != actual:
+                problems.append(f"{name}.{label}: published {expected!r}, derived {actual!r}")
+
+    if problems:
+        raise AssertionError(
+            "The derived condition grid no longer matches the published one.\n"
+            + "\n".join(f"  - {p}" for p in problems)
+            + "\n\nEvery cached summary is keyed by summary_key, so a mismatch orphans "
+            "the cache and makes existing runs unmergeable. If the change is "
+            "deliberate, update _PUBLISHED_GRID in the same commit and say in the "
+            "message which published results it invalidates."
+        )
+
+
 def _build_default() -> ConditionRegistry:
     """The published condition grid.
 
@@ -212,7 +283,9 @@ def _build_default() -> ConditionRegistry:
         Condition("phi_reflexion", backend="phi", depth=1),
         Condition("phi_reflexion_d2", backend="phi", depth=2),
     ]
-    return ConditionRegistry(conditions)
+    registry = ConditionRegistry(conditions)
+    check_published_grid(registry)
+    return registry
 
 
 #: The registry the benchmarks use unless a caller supplies its own.
