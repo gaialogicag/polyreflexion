@@ -3,6 +3,28 @@
 defaults:
   - base_report
 
+# Which sections the report carries, in order. Drop one to leave it out,
+# reorder to move it. An unknown name fails at report time and lists the
+# known ones. Override on the command line like any other config:
+#   polyrx-bench 'report.sections=[configuration,aggregate_scores,charts]'
+sections:
+  - configuration
+  - aggregate_scores
+  - charts
+  - per_item
+  - notes
+
+# Standing notes, as plain markdown bullets. Which models answered is read off
+# the run's own provenance instead, so it cannot go stale here.
+notes:
+  - The dataset is used for evaluation only, never for training.
+  - Reflexion conditions use the integrated summary as QA context.
+  - "`answerer_reflexion` / `open_weights_reflexion` = depth 1; `*_d2` = depth 2; `*_d3` = depth 3."
+  - "`answerer_meta_c1` / `answerer_meta_c2` / `answerer_meta_c3` = depth-1 reflexion steered by the
+    polycontextural meta layer with meta cycle budgets 1, 2, or 3 (separate summary
+    caches per budget)."
+  - "Legacy `answerer_meta` is an alias for `answerer_meta_c2`."
+
 # Chart size in inches.
 chart_width: 10.0
 chart_height: 5.0

@@ -435,9 +435,40 @@ class PostProcessConfig:
 # ---------------------------------------------------------------------------
 
 
+#: The default report, in order. Every name here is a section builder
+#: registered in :mod:`polyrx.benchmark.report`.
+DEFAULT_REPORT_SECTIONS = [
+    "configuration",
+    "aggregate_scores",
+    "charts",
+    "per_item",
+    "notes",
+]
+
+#: Standing notes appended to every report. Anything describing *this* run --
+#: which models answered, which conditions ran -- is generated instead, so it
+#: cannot fall out of step with the run it describes.
+DEFAULT_REPORT_NOTES = [
+    "The dataset is used for evaluation only, never for training.",
+    "Reflexion conditions use the integrated summary as QA context.",
+    "`answerer_reflexion` / `open_weights_reflexion` = depth 1; `*_d2` = depth 2; `*_d3` = depth 3.",
+    "`answerer_meta_c1` / `answerer_meta_c2` / `answerer_meta_c3` = depth-1 reflexion steered by the "
+    "polycontextural meta layer with meta cycle budgets 1, 2, or 3 "
+    "(separate summary caches per budget).",
+    "Legacy `answerer_meta` is an alias for `answerer_meta_c2`.",
+]
+
+
 @dataclass
 class ReportConfig:
     """Presentation only: nothing here changes a score."""
+
+    #: Which sections the report carries, in order. Drop one to leave it out;
+    #: reorder to move it. An unknown name fails with the list of known ones
+    #: rather than writing a report with a section silently missing.
+    sections: list[str] = field(default_factory=lambda: list(DEFAULT_REPORT_SECTIONS))
+    #: Bullet points for the `notes` section, as plain markdown.
+    notes: list[str] = field(default_factory=lambda: list(DEFAULT_REPORT_NOTES))
 
     #: Figure size in inches for the single-series charts.
     chart_width: float = 10.0

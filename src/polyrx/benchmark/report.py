@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from polyrx.benchmark.metrics import compute_metrics
 from polyrx.benchmark.runner import BenchmarkRun
 from polyrx.charts import pyplot
-from polyrx.config import ReportConfig
+from polyrx.config import DEFAULT_REPORT_SECTIONS, ReportConfig
 
 
 def _ordered_conditions(metrics: dict, order: tuple[str, ...] = ()) -> list[str]:
@@ -125,86 +127,104 @@ def charts_dir_for(report_path: Path) -> Path:
     return report_path.parent / "charts" / report_path.stem
 
 
-def write_report(
-    run: BenchmarkRun,
-    report_path: Path,
-    report: ReportConfig | None = None,
-) -> Path:
-    """Write markdown report with charts and per-question table."""
-    # Presentation settings travel on the run, so a report regenerated later
-    # looks the same as the one the run produced.
-    report = report or getattr(run.config, "report", None) or ReportConfig()
-    # Column order is the run's own grid, not a constant in this file.
-    order = tuple(run.config.conditions)
-    # What the grouping dimension is called, so headings say "by domain" or
-    # "by question type" rather than a generic word.
-    group_name = run.config.dataset.group_name or "group"
-    metrics = compute_metrics(run.results)
-    charts_dir = charts_dir_for(report_path)
-    charts_dir.mkdir(parents=True, exist_ok=True)
+@dataclass
+class ReportContext:
+    """Everything a section builder is allowed to look at.
 
-    chart_overall = charts_dir / "scores_by_condition.png"
-    chart_by_type = charts_dir / "scores_by_group.png"
-    chart_compare = charts_dir / "direct_vs_reflexion.png"
-    _bar_chart_by_condition(metrics, chart_overall, report, order)
-    _grouped_chart_by_type(metrics, chart_by_type, report, order, group_name)
-    _comparison_chart(metrics, chart_compare, report, order)
+    Sections take this and return markdown lines. Keeping the inputs in one
+    object is what lets a section be reordered, dropped or added without any
+    other section knowing.
+    """
 
-    def rel(p: Path) -> str:
+    run: BenchmarkRun
+    report: ReportConfig
+    report_path: Path
+    #: Condition order for every table and chart: the run's own grid.
+    order: tuple[str, ...]
+    #: What the grouping dimension is called, so headings say "by domain" or
+    #: "by question type" rather than a generic word.
+    group_name: str
+    metrics: dict
+    charts: dict[str, Path]
+
+    def rel(self, path: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
-        return p.relative_to(report_path.parent).as_posix()
+        return path.relative_to(self.report_path.parent).as_posix()
 
-    lines = [
-        "# Benchmark Report",
-        "",
-        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
-        "",
+    @property
+    def prediction_columns(self) -> list[str]:
+        """Conditions actually present in the results, in grid order."""
+        present = {c for row in self.run.results for c in row.get("predictions", {})}
+        return [c for c in self.order if c in present] + sorted(
+            c for c in present if c not in self.order
+        )
+
+
+def _section_configuration(ctx: ReportContext) -> list[str]:
+    config = ctx.run.config
+    # `num_items` counts sampled units, which is stories on a dataset sampled
+    # by context. Saying so, and giving the row count beside it, is the whole
+    # difference between "20 items" meaning 20 stories and 460 questions.
+    unit = "item" if config.dataset.sample_by == "item" else config.dataset.sample_by
+    rows = len(ctx.run.results)
+    return [
         "## Configuration",
         "",
-        f"- Dataset: {run.config.dataset.name} (adapter {run.config.dataset.adapter})",
-        f"- Items: {run.config.num_items}",
-        f"- Reflexion depth: {run.config.reflexion_depth}",
-        f"- Seed: {run.config.seed}",
-        f"- Stub mode: {run.config.use_stub}",
-        f"- Started: {run.started_at}",
-        f"- Finished: {run.finished_at}",
+        f"- Dataset: {config.dataset.name} (adapter {config.dataset.adapter})",
+        f"- Sampled: {config.num_items} {unit}(s), {rows} scored question(s)",
+        f"- Reflexion depth: {config.reflexion_depth}",
+        f"- Seed: {config.seed}",
+        f"- Stub mode: {config.use_stub}",
+        f"- Started: {ctx.run.started_at}",
+        f"- Finished: {ctx.run.finished_at}",
         "",
+    ]
+
+
+def _section_aggregate_scores(ctx: ReportContext) -> list[str]:
+    lines = [
         "## Aggregate scores",
         "",
         "| Condition | Accuracy | Correct | Total |",
         "|-----------|----------|---------|-------|",
     ]
-
-    for name in _ordered_conditions(metrics, order):
-        m = metrics[name]
+    for name in _ordered_conditions(ctx.metrics, ctx.order):
+        m = ctx.metrics[name]
         lines.append(f"| {name} | {m.accuracy:.3f} | {m.correct} | {m.total} |")
+    lines.append("")
+    return lines
 
-    present = {c for row in run.results for c in row.get("predictions", {})}
-    pred_cols = [c for c in order if c in present] + sorted(c for c in present if c not in order)
-    header_preds = " | ".join(pred_cols)
-    header_judges = " | ".join(f"J:{c}" for c in pred_cols)
-    sep_preds = " | ".join("---" for _ in pred_cols)
-    sep_judges = " | ".join("---" for _ in pred_cols)
 
-    lines.extend(
-        [
-            "",
-            "## Charts",
-            "",
-            f"![Scores by condition]({rel(chart_overall)})",
-            "",
-            f"![Scores by {group_name}]({rel(chart_by_type)})",
-            "",
-            f"![Condition comparison]({rel(chart_compare)})",
-            "",
-            "## Per-item results",
-            "",
-            f"| Story | Question | Gold | {header_preds} | {header_judges} |",
-            f"|-------|----------|------| {sep_preds} | {sep_judges} |",
-        ]
-    )
+def _section_charts(ctx: ReportContext) -> list[str]:
+    return [
+        "## Charts",
+        "",
+        f"![Scores by condition]({ctx.rel(ctx.charts['overall'])})",
+        "",
+        f"![Scores by {ctx.group_name}]({ctx.rel(ctx.charts['by_group'])})",
+        "",
+        f"![Condition comparison]({ctx.rel(ctx.charts['comparison'])})",
+        "",
+    ]
 
-    for row in run.results:
+
+def _section_per_item(ctx: ReportContext) -> list[str]:
+    report = ctx.report
+    pred_cols = ctx.prediction_columns
+    # The first column is the item id, which identifies the question, not the
+    # story. When a dataset groups several questions under one context, the
+    # context gets a column of its own rather than being implied by a heading.
+    grouped = ctx.run.config.dataset.sample_by != "item"
+    has_context = any(row.get("context_id") for row in ctx.run.results)
+    show_context = grouped and has_context
+    unit = ctx.run.config.dataset.sample_by.capitalize() if show_context else ""
+
+    headers = ["Item"] + ([unit] if show_context else []) + ["Question", "Gold"]
+    header = " | ".join(headers + pred_cols + [f"J:{c}" for c in pred_cols])
+    separator = " | ".join(["---"] * (len(headers) + 2 * len(pred_cols)))
+    lines = ["## Per-item results", "", f"| {header} |", f"| {separator} |"]
+
+    for row in ctx.run.results:
         preds = row.get("predictions", {})
         judgments = row.get("judgments", {})
 
@@ -215,30 +235,98 @@ def write_report(
                 return ""
             return "correct" if judgments[cond].get("correct") else "wrong"
 
-        cells = [
-            _escape_cell(row["item_id"][: report.id_display_chars]),
-            _escape_cell(row["question"][: report.question_display_chars]),
-            _escape_cell(row["gold_label"]),
-        ]
+        cells = [_escape_cell(row["item_id"][: report.id_display_chars])]
+        if show_context:
+            cells.append(_escape_cell(row.get("context_id", "")[: report.id_display_chars]))
+        cells.extend(
+            [
+                _escape_cell(row["question"][: report.question_display_chars]),
+                _escape_cell(row["gold_label"]),
+            ]
+        )
         cells.extend(_escape_cell(preds.get(c, "")) for c in pred_cols)
         cells.extend(verdict(c) for c in pred_cols)
         lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines
 
-    lines.extend(
-        [
-            "",
-            "## Notes",
-            "",
-            "- The dataset is used for evaluation only, never for training.",
-            "- Judge model: gpt-5-mini (fallback string match if judge JSON fails).",
-            "- Reflexion conditions use the integrated summary as QA context.",
-            "- `nano_reflexion` / `phi_reflexion` = depth 1; `*_d2` = depth 2; `*_d3` = depth 3.",
-            "- `nano_meta_c1` / `nano_meta_c2` / `nano_meta_c3` = depth-1 reflexion steered "
-            "by the polycontextural meta layer with meta cycle budgets 1, 2, or 3 "
-            "(judges: gpt-4o; separate summary caches per budget).",
-            "- Legacy `nano_meta` is an alias for `nano_meta_c2`.",
-        ]
+
+def _section_notes(ctx: ReportContext) -> list[str]:
+    lines = ["## Notes", ""]
+    # Which models answered is a fact about this run, so it is read off the
+    # run's provenance rather than written into a note that can go stale.
+    provenance = ctx.run.provenance
+    for model in getattr(provenance, "models", []) or []:
+        lines.append(f"- Role `{model.role}`: {model.model} (backend {model.backend}).")
+    lines.extend(f"- {note}" for note in ctx.report.notes)
+    lines.append("")
+    return lines
+
+
+#: Section name -> builder. A report is these, in the order `report.sections`
+#: names them.
+SECTION_BUILDERS: dict[str, Callable[[ReportContext], list[str]]] = {
+    "configuration": _section_configuration,
+    "aggregate_scores": _section_aggregate_scores,
+    "charts": _section_charts,
+    "per_item": _section_per_item,
+    "notes": _section_notes,
+}
+
+
+def write_report(
+    run: BenchmarkRun,
+    report_path: Path,
+    report: ReportConfig | None = None,
+) -> Path:
+    """Write the markdown report named by ``report.sections``, and its charts."""
+    # Presentation settings travel on the run, so a report regenerated later
+    # looks the same as the one the run produced.
+    report = report or getattr(run.config, "report", None) or ReportConfig()
+    sections = list(report.sections) or list(DEFAULT_REPORT_SECTIONS)
+    unknown = [name for name in sections if name not in SECTION_BUILDERS]
+    if unknown:
+        known = ", ".join(sorted(SECTION_BUILDERS))
+        raise ValueError(
+            f"Unknown report section(s): {', '.join(unknown)}. Known sections: {known}."
+        )
+
+    order = tuple(run.config.conditions)
+    group_name = run.config.dataset.group_name or "group"
+    metrics = compute_metrics(run.results)
+
+    charts_dir = charts_dir_for(report_path)
+    charts_dir.mkdir(parents=True, exist_ok=True)
+    charts = {
+        "overall": charts_dir / "scores_by_condition.png",
+        "by_group": charts_dir / "scores_by_group.png",
+        "comparison": charts_dir / "direct_vs_reflexion.png",
+    }
+    # Drawn whether or not the charts section is selected: the detailed report
+    # links the same files, and a run that drops the section from its summary
+    # should still leave the figures behind.
+    _bar_chart_by_condition(metrics, charts["overall"], report, order)
+    _grouped_chart_by_type(metrics, charts["by_group"], report, order, group_name)
+    _comparison_chart(metrics, charts["comparison"], report, order)
+
+    ctx = ReportContext(
+        run=run,
+        report=report,
+        report_path=report_path,
+        order=order,
+        group_name=group_name,
+        metrics=metrics,
+        charts=charts,
     )
+
+    lines = [
+        "# Benchmark Report",
+        "",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+    ]
+    for name in sections:
+        lines.extend(SECTION_BUILDERS[name](ctx))
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
     return report_path
