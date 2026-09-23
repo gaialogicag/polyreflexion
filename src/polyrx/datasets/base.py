@@ -33,6 +33,7 @@ from polyrx.config import DatasetConfig
 __all__ = [
     "DatasetAdapter",
     "Item",
+    "UnanswerableItemsError",
     "available_adapters",
     "get_adapter",
     "register_adapter",
@@ -63,6 +64,21 @@ class Item:
     #: Anything the adapter wants to carry through to reports.
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def allowed_labels(self) -> list[str]:
+        """The allowed answers, split and stripped."""
+        return [part.strip() for part in self.label_space.split(",") if part.strip()]
+
+    def gold_is_allowed(self) -> bool:
+        """Whether this item's gold label is one of its own allowed answers.
+
+        It always should be. The label space is rendered into the answering
+        prompt -- "Allowed answers (choose exactly one)" -- so an item whose
+        gold answer is not in it asks the model for a string it forbids, and no
+        model and no judge can score correctly on it.
+        """
+        gold = self.gold_label.strip().casefold()
+        return gold in {label.casefold() for label in self.allowed_labels()}
+
     @staticmethod
     def content_id(*parts: str, id_chars: int = 12) -> str:
         """Content hash for an item, from whatever uniquely identifies it.
@@ -89,6 +105,19 @@ class DatasetAdapter(ABC):
     def load(self, path: Path) -> list[Item]:
         """Parse the downloaded source file into items."""
 
+    def load_items(self, path: Path) -> list[Item]:
+        """Parse the source and check the items can be answered at all.
+
+        Every caller loads through here rather than through :meth:`load`, so
+        the check covers every adapter -- including ones written later, which
+        cannot opt out by forgetting to call it.
+        """
+        items = self.load(path)
+        unanswerable = [item for item in items if not item.gold_is_allowed()]
+        if unanswerable:
+            report_unanswerable(items, unanswerable, self.config)
+        return items
+
     # -- scoring ------------------------------------------------------------
 
     @abstractmethod
@@ -103,7 +132,7 @@ class DatasetAdapter(ABC):
         """Whether an answer needs the language-model judge rather than a
         string comparison. Default: only when matching failed to land on an
         allowed label."""
-        allowed = {part.strip().casefold() for part in item.label_space.split(",")}
+        allowed = {label.casefold() for label in item.allowed_labels()}
         return matched.strip().casefold() not in allowed
 
     # -- grouping -----------------------------------------------------------
@@ -111,6 +140,50 @@ class DatasetAdapter(ABC):
     def group_label(self) -> str:
         """Human-readable name of the grouping dimension, for report headings."""
         return self.config.group_name or "group"
+
+
+class UnanswerableItemsError(RuntimeError):
+    """Too many items cannot be answered correctly by any model."""
+
+
+def report_unanswerable(
+    items: list[Item],
+    unanswerable: list[Item],
+    config: DatasetConfig,
+    *,
+    examples: int = 3,
+) -> None:
+    """Warn about items whose gold label is outside their label space, or fail.
+
+    Checked here rather than at scoring time because the fault is upstream of
+    scoring: these items were asked with the wrong set of allowed answers, so a
+    wrong answer says nothing about the model. Catching it before the first API
+    call is the difference between a bug report and a published number that
+    measures nothing.
+    """
+    fraction = len(unanswerable) / len(items) if items else 0.0
+    by_group: dict[str, int] = {}
+    for item in unanswerable:
+        by_group[item.group] = by_group.get(item.group, 0) + 1
+
+    lines = [
+        f"{len(unanswerable)} of {len(items)} items ({fraction:.1%}) have a gold label "
+        f"outside their own label space, so no answer can score correctly.",
+        "  by group: " + ", ".join(f"{g}={n}" for g, n in sorted(by_group.items())),
+    ]
+    for item in unanswerable[:examples]:
+        lines.append(f"  {item.item_id}: gold {item.gold_label!r} not in [{item.label_space}]")
+    if len(unanswerable) > examples:
+        lines.append(f"  ... and {len(unanswerable) - examples} more")
+
+    if fraction > config.max_unanswerable_fraction:
+        lines.append(
+            f"Above dataset.max_unanswerable_fraction "
+            f"({config.max_unanswerable_fraction:.1%}). The adapter is probably reading "
+            f"the source wrongly -- check how it derives label_space."
+        )
+        raise UnanswerableItemsError("\n".join(lines))
+    print("WARNING: " + "\n".join(lines))
 
 
 # ---------------------------------------------------------------------------

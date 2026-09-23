@@ -301,12 +301,17 @@ def _dataset(cfg: RootConfig, live: bool) -> list[Check]:
     )
 
     if live:
-        checks.append(_probe_dataset(cfg))
+        checks.extend(_probe_dataset(cfg))
     return checks
 
 
-def _probe_dataset(cfg: RootConfig) -> Check:
-    """Actually fetch the dataset, which is the only real proof of access."""
+def _probe_dataset(cfg: RootConfig) -> list[Check]:
+    """Fetch the dataset and build its items, which is the only real proof.
+
+    Fetching alone proves access and nothing else. Parsing the file into items
+    is what catches an adapter reading the source wrongly, and that is worth
+    knowing here rather than after an hour of answering.
+    """
     from polyrx.data.fetch import DatasetFetcher
 
     try:
@@ -315,9 +320,52 @@ def _probe_dataset(cfg: RootConfig) -> Check:
         )
         path = fetcher.fetch_dataset(cfg.dataset)
         size = path.stat().st_size
-        return Check("dataset fetch", OK, f"{path.name} ({size / 1024:.0f} KiB)")
     except Exception as exc:
-        return Check("dataset fetch", FAIL, str(exc)[:200])
+        return [Check("dataset fetch", FAIL, str(exc)[:200])]
+
+    fetched = Check("dataset fetch", OK, f"{path.name} ({size / 1024:.0f} KiB)")
+    return [fetched, _probe_items(cfg, path)]
+
+
+def _probe_items(cfg: RootConfig, path: Path) -> Check:
+    """Parse the source into items and check they can be answered at all."""
+    from polyrx.datasets import get_adapter
+
+    try:
+        adapter = get_adapter(cfg.dataset)
+        items = adapter.load(path)
+    except Exception as exc:
+        return Check("dataset items", FAIL, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    if not items:
+        return Check("dataset items", FAIL, "the adapter produced no items")
+
+    # `load_items` raises above the threshold and prints below it. Doctor
+    # reports rather than raises, so the same rule is applied to the same
+    # numbers here instead of calling it.
+    unanswerable = [item for item in items if not item.gold_is_allowed()]
+    fraction = len(unanswerable) / len(items)
+    if not unanswerable:
+        return Check("dataset items", OK, f"{len(items)} items, all answerable")
+
+    detail = (
+        f"{len(unanswerable)} of {len(items)} ({fraction:.1%}) have a gold label outside "
+        f"their own label space"
+    )
+    example = unanswerable[0]
+    fix = (
+        f"e.g. {example.item_id}: gold {example.gold_label!r} not in "
+        f"[{example.label_space}]. Check how the {cfg.dataset.adapter!r} adapter "
+        f"derives label_space."
+    )
+    over = fraction > cfg.dataset.max_unanswerable_fraction
+    if over:
+        # The same threshold a real run applies, reported here instead of raised.
+        detail += (
+            f" — above dataset.max_unanswerable_fraction "
+            f"({cfg.dataset.max_unanswerable_fraction:.1%})"
+        )
+    return Check("dataset items", FAIL if over else WARN, detail, fix)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -499,7 +499,7 @@ def load_dataset_items(config: BenchmarkConfig) -> tuple[list[Item], DatasetAdap
     data_dir = config.paths.resolved("data_dir")
     fetcher = DatasetFetcher(data_dir, verify=config.dataset.verify_checksums)
     path = fetcher.fetch_dataset(config.dataset)
-    all_items = adapter.load(path)
+    all_items = adapter.load_items(path)
 
     items = sample_by_group(
         all_items,

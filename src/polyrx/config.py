@@ -243,6 +243,15 @@ class DatasetConfig:
     extras: list[DatasetFile] = field(default_factory=list)
     #: Fail the run when a downloaded file does not match its recorded sha256.
     verify_checksums: bool = True
+    #: Fraction of items whose gold label may sit outside their own label space
+    #: before loading fails. A gold answer the item forbids is a bug in the
+    #: adapter or the data, and the label space is rendered into the answering
+    #: prompt, so those items cannot be answered correctly by any model. A
+    #: handful is upstream noise -- one OpenToM row says "dinint table" -- but a
+    #: systematic share means the adapter is reading the source wrongly, and
+    #: scoring against it would publish a number that measures nothing.
+    #: ``0.0`` fails on the first one; ``1.0`` only warns.
+    max_unanswerable_fraction: float = 0.01
     #: Characters of the content hash that form an item's id. This is a data
     #: format, not a tuning knob: changing it renames every item, which
     #: invalidates every cached summary and makes saved runs unmergeable.
