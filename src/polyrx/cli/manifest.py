@@ -13,10 +13,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from polyrx.cli.compose import load_config
-from polyrx.data.fetch import MANIFEST_NAME, DatasetFetcher, Manifest
+from polyrx.data.fetch import MANIFEST_NAME, DatasetFetcher, Manifest, source_dirname
 from polyrx.provenance import file_sha256
 
 
@@ -74,7 +73,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     failures = 0
     for key, entry in sorted(manifest.entries.items()):
-        candidates = list(data_dir.rglob(Path(entry.filename).name))
+        # Match on the repo directory as well as the filename: mirrors of the
+        # same dataset ship the same filename, and hashing the first basename
+        # that turns up reports every one of them against one file's bytes.
+        candidates = sorted(data_dir.rglob(f"{source_dirname(entry.repo_id)}/{entry.filename}"))
         if not candidates:
             print(f"MISSING  {key} (not downloaded yet)")
             continue

@@ -27,6 +27,18 @@ from polyrx.provenance import DatasetInfo, file_sha256
 
 MANIFEST_NAME = "MANIFEST.json"
 
+
+def source_dirname(repo_id: str) -> str:
+    """Directory one source repo's files live in, inside a dataset's directory.
+
+    A dataset's mirrors normally keep the upstream filename -- GPQA's official
+    repo and both of its mirrors all ship ``gpqa_diamond.csv`` -- so the repo
+    has to be part of the path. Anything reading a file back has to agree with
+    this, which is why it is a function rather than an inline expression.
+    """
+    return repo_id.replace("/", "__")
+
+
 #: Refs that do not identify a fixed snapshot.
 _FLOATING_REFS = frozenset({"", "main", "master", "HEAD"})
 
@@ -122,7 +134,11 @@ class DatasetFetcher:
 
         from huggingface_hub import hf_hub_download
 
+        # One directory per source repo: sharing one means whichever source was
+        # downloaded last silently overwrites the others, and the manifest then
+        # describes bytes that are no longer on disk.
         target_dir = self.cache_dir / subdir if subdir else self.cache_dir
+        target_dir = target_dir / source_dirname(spec.repo_id)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         if spec.revision in _FLOATING_REFS:

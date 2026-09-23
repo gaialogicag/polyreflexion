@@ -16,10 +16,11 @@ sample_by: context
 primary:
   repo_id: SeacowX/OpenToM
   filename: opentom.json
-  # Pin a Hub commit sha. `polyrx-manifest pin` resolves the current one and
-  # records its checksum; leaving this at `main` makes the run unreproducible
-  # and the runner says so.
-  revision: main
+  # A Hub commit sha, not a branch: `main` would make the run unreproducible,
+  # and the runner says so. `polyrx-manifest pin` resolves the current commit
+  # and records its checksum in data/MANIFEST.json. Moving to a newer revision
+  # is a deliberate act -- re-pin, and say which published numbers it replaces.
+  revision: 552b91aaeca0a651647cc3f331a47dcd7e77d0eb
   repo_type: dataset
   gated: false
 fallbacks: []

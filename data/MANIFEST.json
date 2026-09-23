@@ -1,0 +1,37 @@
+{
+  "_comment": "Checksums of the dataset files the published results were computed from. Regenerate with: polyrx-manifest pin",
+  "entries": {
+    "dataset:Idavidrein/gpqa/gpqa_diamond.csv": {
+      "repo_id": "Idavidrein/gpqa",
+      "filename": "gpqa_diamond.csv",
+      "revision": "83022cefff930aea54f654c0b282e74b9eeda5c6",
+      "sha256": "41d1213cd7a4998605a26c2798500652572007161b3a92817ba46b35befcd305",
+      "repo_type": "dataset",
+      "size_bytes": 1373492
+    },
+    "dataset:SeacowX/OpenToM/opentom.json": {
+      "repo_id": "SeacowX/OpenToM",
+      "filename": "opentom.json",
+      "revision": "552b91aaeca0a651647cc3f331a47dcd7e77d0eb",
+      "sha256": "11de58a9950e09d13f08df14dd595c101d4b5c183ed1ac5d0647d181c3676bf2",
+      "repo_type": "dataset",
+      "size_bytes": 34310208
+    },
+    "dataset:aradhye/gpqa_diamond/gpqa_diamond.csv": {
+      "repo_id": "aradhye/gpqa_diamond",
+      "filename": "gpqa_diamond.csv",
+      "revision": "83e8d789938cdfd940871bf1141cb57e648a56af",
+      "sha256": "edd60de911e43655e0afe1b939c0a185072ca8f311b9a24243e8c9bbbf0dc39b",
+      "repo_type": "dataset",
+      "size_bytes": 127958
+    },
+    "dataset:nichenshun/gpqa_diamond/data/train-00000-of-00001.parquet": {
+      "repo_id": "nichenshun/gpqa_diamond",
+      "filename": "data/train-00000-of-00001.parquet",
+      "revision": "e1b778bf905515762eeee043fc0116f2666d17af",
+      "sha256": "a41548ca557bc09199803a0b938998f28f2b6dd65aee9ec96a1a2cb4360511d3",
+      "repo_type": "dataset",
+      "size_bytes": 758829
+    }
+  }
+}

@@ -14,22 +14,26 @@ sample_by: item
 
 # The official release is gated: accept the terms on the Hub and set HF_TOKEN.
 # Without it the fetch falls through to the mirror, which has no domain labels.
+#
+# Every revision below is a Hub commit sha, recorded together with the file's
+# checksum by `polyrx-manifest pin`. Each source downloads into its own
+# directory, because all three ship a file called `gpqa_diamond.csv`.
 primary:
   repo_id: Idavidrein/gpqa
   filename: gpqa_diamond.csv
-  revision: main
+  revision: 83022cefff930aea54f654c0b282e74b9eeda5c6
   repo_type: dataset
   gated: true
 fallbacks:
   - repo_id: aradhye/gpqa_diamond
     filename: gpqa_diamond.csv
-    revision: main
+    revision: 83e8d789938cdfd940871bf1141cb57e648a56af
     repo_type: dataset
     gated: false
 extras:
   - repo_id: nichenshun/gpqa_diamond
     filename: data/train-00000-of-00001.parquet
-    revision: main
+    revision: e1b778bf905515762eeee043fc0116f2666d17af
     repo_type: dataset
     gated: false
 verify_checksums: true
