@@ -3,9 +3,16 @@
 #
 # Keys are read from the environment by name (`api_key_env`), so this file is
 # safe to commit and safe to copy into a results directory.
+#
+# Each hosted role names its provider in `defaults`. That is what decides which
+# client answers the role; the block below only fills in that provider's fields.
 
 defaults:
   - base_backends
+  - /backends/role@nano: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
 
 nano:
   model: gpt-5.4-nano

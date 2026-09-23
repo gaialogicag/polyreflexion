@@ -23,13 +23,18 @@ from pathlib import Path
 
 
 @dataclass
-class OpenAIConfig:
-    """A hosted chat-completions backend (OpenAI or any compatible gateway)."""
+class HostedModelConfig:
+    """What every hosted provider needs, whoever serves the model.
 
-    model: str = "gpt-5.4-nano"
+    A backend *role* is typed as this base class, and the concrete provider is
+    chosen per role by the ``backends/role`` config group. That is what lets one
+    run answer with Gemini and judge with OpenAI without any call site knowing.
+    """
+
+    model: str = "?"
     #: Name of the environment variable holding the key — never the key itself.
     api_key_env: str = "OPENAI_API_KEY"
-    #: Set for Azure / OpenRouter / vLLM style gateways; ``None`` = OpenAI.
+    #: Set for a gateway or proxy in front of the provider; ``None`` = direct.
     base_url: str | None = None
     temperature: float = 0.0
     system_prompt: str = "You are an expert in modeling others' mental states."
@@ -43,6 +48,34 @@ class OpenAIConfig:
                 f"next to your working directory."
             )
         return key
+
+
+@dataclass
+class OpenAIConfig(HostedModelConfig):
+    """A hosted chat-completions backend (OpenAI or any compatible gateway)."""
+
+    model: str = "gpt-5.4-nano"
+    api_key_env: str = "OPENAI_API_KEY"
+
+
+@dataclass
+class GeminiConfig(HostedModelConfig):
+    """A Google Gemini backend, served through the ``google-genai`` SDK.
+
+    Gemini is not reached through the OpenAI-compatible shim on purpose: the
+    shim drops the thinking controls, and on these models how much the model is
+    allowed to think changes the answer, so it belongs in the recorded config.
+    """
+
+    model: str = "gemini-2.5-flash"
+    api_key_env: str = "GEMINI_API_KEY"
+    #: Thinking tokens the model may spend before answering. ``0`` turns
+    #: thinking off, ``-1`` lets the model decide, ``None`` leaves the provider
+    #: default in place. Not every Gemini model accepts every value.
+    thinking_budget: int | None = None
+    #: Ceiling on the answer itself. ``None`` leaves it to the provider — which
+    #: is what a reasoning model needs, since thinking is billed against this.
+    max_output_tokens: int | None = None
 
 
 @dataclass
@@ -71,18 +104,38 @@ class BackendsConfig:
     """The four named roles the code asks for by alias.
 
     Keeping the *roles* fixed and the *models* configurable is what lets a
-    reader swap in a different provider without touching any call site.
+    reader swap in a different provider without touching any call site. The
+    three hosted roles are typed as :class:`HostedModelConfig`, so each one can
+    be served by a different provider; the defaults here are the all-OpenAI
+    setup a caller gets when constructing this class directly, without Hydra.
     """
 
     #: Reflexion engine and meta cycles.
-    nano: OpenAIConfig = field(default_factory=OpenAIConfig)
+    nano: HostedModelConfig = field(default_factory=OpenAIConfig)
     #: Benchmark label judge (OpenToM labels, ambiguous GPQA answers).
-    judge: OpenAIConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-5-mini"))
+    judge: HostedModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-5-mini"))
     #: Polycontextural S/O/D judges — deliberately a different model from
     #: ``judge`` so meta evaluation stays independent of benchmark scoring.
-    meta_judge: OpenAIConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-4o"))
+    meta_judge: HostedModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-4o"))
     #: Local open-weights backend.
     phi: OllamaConfig = field(default_factory=OllamaConfig)
+
+
+@dataclass
+class BackendsSchema(BackendsConfig):
+    """The ``backends`` group schema Hydra composes onto.
+
+    It differs from :class:`BackendsConfig` in one way that matters: the hosted
+    roles start out as the bare base class rather than as OpenAI. OmegaConf
+    only allows a config node to be replaced by a *subclass* of what is already
+    there, so starting from the base is what lets ``backends/role`` put either
+    provider in any role. A backends YAML file therefore has to name the
+    provider for each hosted role in its ``defaults``.
+    """
+
+    nano: HostedModelConfig = field(default_factory=HostedModelConfig)
+    judge: HostedModelConfig = field(default_factory=HostedModelConfig)
+    meta_judge: HostedModelConfig = field(default_factory=HostedModelConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +474,13 @@ class ProvenanceConfig:
     #: Packages whose version can change a result. A full ``pip freeze`` buries
     #: the handful that matter.
     tracked_packages: list[str] = field(
-        default_factory=lambda: ["openai", "huggingface_hub", "hydra-core", "omegaconf"]
+        default_factory=lambda: [
+            "openai",
+            "google-genai",
+            "huggingface_hub",
+            "hydra-core",
+            "omegaconf",
+        ]
     )
     #: Seconds to wait on each git subprocess. Provenance must never be the
     #: reason a run hangs.
@@ -503,7 +562,8 @@ class RootConfig:
     """Top-level composed config — what a Hydra entry point receives."""
 
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
-    backends: BackendsConfig = field(default_factory=BackendsConfig)
+    #: The schema, not the plain config: see :class:`BackendsSchema`.
+    backends: BackendsConfig = field(default_factory=BackendsSchema)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
     prompts: PromptsConfig = field(default_factory=PromptsConfig)

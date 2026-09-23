@@ -48,7 +48,7 @@ pip install -e ".[dev,viz,gpqa]"
 Then set up credentials and check what is missing:
 
 ```bash
-cp .env.example .env        # put OPENAI_API_KEY here
+cp .env.example .env        # put OPENAI_API_KEY here, GEMINI_API_KEY for Gemini
 polyrx-doctor               # says exactly what would block a real run
 ```
 
@@ -61,9 +61,9 @@ Everything below works offline with `experiment.use_stub=true`; only real runs
 need a key.
 
 Extras: `viz` adds chart and topology rendering (matplotlib); `gpqa` adds the
-parquet reader used to recover GPQA domain labels. Both are genuinely optional
-— without `viz`, reports and traces are still written and the figures are
-skipped with a note.
+parquet reader used to recover GPQA domain labels; `gemini` adds the Google SDK
+the Gemini backends need. All three are genuinely optional — without `viz`,
+reports and traces are still written and the figures are skipped with a note.
 
 For a local open-weights backend, install [Ollama](https://ollama.com) and pull
 a model: `ollama pull phi4-mini-reasoning`. Serving with
@@ -238,7 +238,32 @@ Call sites ask for a **role**, never a model name:
 stays independent of benchmark scoring.
 
 Change the models in `conf/backends/openai.yaml`, or pick a different file:
-`polyrx-bench backends=local` routes every role through Ollama.
+
+```bash
+polyrx-bench backends=gemini     # every hosted role on Google Gemini
+polyrx-bench backends=local      # every role through Ollama
+```
+
+Each hosted role names its provider in the backends file's `defaults`, so the
+provider is a per-role choice, not a per-run one. Answering with Gemini while
+keeping the published OpenAI judges:
+
+```bash
+polyrx-bench backends/role@backends.nano=gemini \
+  backends.nano.model=gemini-2.5-flash \
+  backends.nano.api_key_env=GEMINI_API_KEY
+```
+
+Gemini goes through the `google-genai` SDK rather than an OpenAI-compatible
+shim, because the shim drops `thinking_budget` — and on these models how much
+the model is allowed to think changes the answer, so it belongs in the recorded
+config. It needs `pip install -e ".[gemini]"` and `GEMINI_API_KEY`.
+
+| Provider | Config class | Key variable | Extra fields |
+|---|---|---|---|
+| OpenAI and compatible gateways | `OpenAIConfig` | `OPENAI_API_KEY` | `base_url` |
+| Google Gemini | `GeminiConfig` | `GEMINI_API_KEY` | `thinking_budget`, `max_output_tokens` |
+| Ollama, local | `OllamaConfig` | none | `host`, `num_ctx`, `num_predict` |
 
 Only API keys come from the environment. A config object holds the *name* of
 the variable to read, never the value, so a resolved config can be written into

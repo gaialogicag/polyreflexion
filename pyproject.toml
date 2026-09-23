@@ -45,11 +45,14 @@ dependencies = [
 viz = ["matplotlib>=3.8"]
 # GPQA domain labels are recovered from a parquet metadata file.
 gpqa = ["pyarrow>=14"]
+# Gemini backends. Not needed for an OpenAI-only or fully local run, so the
+# default install does not pull the Google SDK.
+gemini = ["google-genai>=1.0,<3"]
 dev = [
     "ruff>=0.6",
     "mypy>=1.11",
 ]
-all = ["polyreflexion[viz,gpqa]"]
+all = ["polyreflexion[viz,gpqa,gemini]"]
 
 [project.urls]
 Homepage = "https://github.com/gaialogicag/polyreflexion"

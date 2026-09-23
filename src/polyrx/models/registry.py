@@ -3,13 +3,22 @@
 Call sites ask for a role — ``"nano"``, ``"judge"``, ``"meta_judge"``,
 ``"phi"`` — and never name a model. Which model answers a role is a config
 decision, which is what makes swapping providers a one-line change in YAML
-rather than a search across the codebase.
+rather than a search across the codebase. The provider is read off the type of
+the role's config, so a run can answer with Gemini and judge with OpenAI.
 """
 
 from __future__ import annotations
 
-from polyrx.config import BackendsConfig, OllamaConfig, OpenAIConfig, PostProcessConfig
+from polyrx.config import (
+    BackendsConfig,
+    GeminiConfig,
+    HostedModelConfig,
+    OllamaConfig,
+    OpenAIConfig,
+    PostProcessConfig,
+)
 from polyrx.models.base import LLMClient
+from polyrx.models.gemini_client import GeminiClient
 from polyrx.models.ollama import OllamaClient
 from polyrx.models.openai_client import OpenAIClient
 
@@ -42,8 +51,17 @@ class ClientRegistry:
             raise ValueError(f"Unknown model role: {role!r}. Use one of: {known}.")
         if isinstance(config, OllamaConfig):
             client: LLMClient = OllamaClient(config, extraction=self.postprocess.extraction)
+        # Gemini before OpenAI: both derive from HostedModelConfig, and a bare
+        # HostedModelConfig means no provider was selected for this role.
+        elif isinstance(config, GeminiConfig):
+            client = GeminiClient(config)
         elif isinstance(config, OpenAIConfig):
             client = OpenAIClient(config)
+        elif isinstance(config, HostedModelConfig):
+            raise TypeError(
+                f"Role {role!r} has no provider selected. A backends config must name one "
+                f"per hosted role in its defaults, e.g. '- /backends/role@{role}: openai'."
+            )
         else:  # pragma: no cover - guarded by the config dataclasses
             raise TypeError(f"Role {role!r} has unsupported config type {type(config).__name__}")
         self._cache[role] = client

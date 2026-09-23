@@ -11,14 +11,16 @@ from __future__ import annotations
 from hydra.core.config_store import ConfigStore
 
 from polyrx.config import (
-    BackendsConfig,
+    BackendsSchema,
     ConditionsConfig,
     DatasetConfig,
     EngineConfig,
     ExperimentConfig,
     FieldMap,
+    GeminiConfig,
     MetaLayerConfig,
     MetaPrompts,
+    OpenAIConfig,
     PathsConfig,
     PostProcessConfig,
     ProvenanceConfig,
@@ -33,7 +35,11 @@ def register() -> ConfigStore:
     cs = ConfigStore.instance()
     cs.store(name="base_config", node=RootConfig)
     cs.store(group="experiment", name="base_experiment", node=ExperimentConfig)
-    cs.store(group="backends", name="base_backends", node=BackendsConfig)
+    cs.store(group="backends", name="base_backends", node=BackendsSchema)
+    # One schema per provider, selected per role: a backends file writes
+    # "- /backends/role@judge: openai" to say who serves the judge.
+    cs.store(group="backends/role", name="openai", node=OpenAIConfig)
+    cs.store(group="backends/role", name="gemini", node=GeminiConfig)
     cs.store(group="dataset", name="base_dataset", node=DatasetConfig)
     cs.store(name="base_field_map", node=FieldMap)
     cs.store(group="engine", name="base_engine", node=EngineConfig)

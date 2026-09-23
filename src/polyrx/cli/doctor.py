@@ -123,7 +123,14 @@ def _credentials(cfg: RootConfig, live: bool) -> list[Check]:
                 )
             )
             continue
-        checks.append(Check(f"{role} key", OK, f"{backend.api_key_env} set ({len(key)} chars)"))
+        provider = type(backend).__name__.replace("Config", "").lower()
+        checks.append(
+            Check(
+                f"{role} key",
+                OK,
+                f"{provider}: {backend.api_key_env} set ({len(key)} chars)",
+            )
+        )
 
         if not live:
             checks.append(
@@ -137,17 +144,22 @@ def _credentials(cfg: RootConfig, live: bool) -> list[Check]:
     return checks
 
 
+#: Output allowance for a probe. A reasoning model bills its thinking against
+#: this budget, so a probe of 1 token fails on every such model with a 400 that
+#: reads like a broken model name. Large enough to let thinking start, small
+#: enough that a full doctor run costs a fraction of a cent.
+_PROBE_MAX_TOKENS = 64
+
+
 def _probe_model(role: str, backend) -> Check:
     """One minimal completion, to prove the model identifier is served."""
-    from polyrx.models.openai_client import OpenAIClient
+    from polyrx.config import GeminiConfig
 
     try:
-        client = OpenAIClient(backend)
-        client._client.chat.completions.create(
-            model=backend.model,
-            messages=[{"role": "user", "content": "ok"}],
-            max_completion_tokens=1,
-        )
+        if isinstance(backend, GeminiConfig):
+            _probe_gemini(backend)
+        else:
+            _probe_openai(backend)
         return Check(f"{role} model", OK, f"{backend.model} answered")
     except Exception as exc:
         text = str(exc)
@@ -159,7 +171,31 @@ def _probe_model(role: str, backend) -> Check:
             hint = f"The key in {backend.api_key_env} was rejected."
         elif "rate" in lowered or "429" in text:
             hint = "Rate limited. The model exists; try again shortly."
+        elif "google" in lowered and "genai" in lowered:
+            hint = 'The Gemini backend needs: pip install -e ".[gemini]"'
         return Check(f"{role} model", FAIL, f"{backend.model}: {text[:160]}", hint)
+
+
+def _probe_openai(backend) -> None:
+    from polyrx.models.openai_client import OpenAIClient
+
+    client = OpenAIClient(backend)
+    client._client.chat.completions.create(
+        model=backend.model,
+        messages=[{"role": "user", "content": "ok"}],
+        max_completion_tokens=_PROBE_MAX_TOKENS,
+    )
+
+
+def _probe_gemini(backend) -> None:
+    from polyrx.models.gemini_client import GeminiClient
+
+    client = GeminiClient(backend)
+    client._client.models.generate_content(
+        model=backend.model,
+        contents="ok",
+        config=client._request_config,
+    )
 
 
 def _local_backend(cfg: RootConfig) -> list[Check]:
