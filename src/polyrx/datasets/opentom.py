@@ -44,20 +44,43 @@ class OpenToMAdapter(DatasetAdapter):
             )
         return items
 
+    #: Closed answer sets, keyed by what the question is about. Taken from the
+    #: corpus itself: `attitude` uses three labels and the two `multihop` types
+    #: use six between them, across all 13708 questions.
+    ATTITUDES = "positive, negative, neutral"
+    ACCESSIBILITY = "more accessible, equally accessible, less accessible"
+    FULLNESS = "more full, equally full, less full"
+
     @staticmethod
     def label_space(question: str, question_type: str, plot: dict) -> str:
         """Allowed answers for one question, from its type and its story.
 
-        Location questions are scored against the two places that story
+        Driven by ``question_type`` first, because the dataset states it and
+        the question wording does not have to. An earlier version decided this
+        by looking for the word "accessible" in the question; the questions say
+        "accessibility", which does not contain it, so 2386 questions -- every
+        accessibility question in the corpus -- were given the story's two
+        places as their allowed answers instead. The label space is rendered
+        into the answering prompt, so those questions asked the model to choose
+        between answers that were all wrong.
+
+        Location questions are still scored against the two places that story
         mentions, which is why this cannot be a fixed list in config.
         """
         lowered = question.lower()
         if question_type == "attitude":
-            return "positive, negative, neutral"
-        if "accessible" in lowered:
-            return "more accessible, equally accessible, less accessible"
-        if "full" in lowered:
-            return "more full, equally full, less full"
+            return OpenToMAdapter.ATTITUDES
+
+        if question_type.startswith("multihop"):
+            # Match on the stem, so "accessible" and "accessibility" both land.
+            # Neither stem present means the wording changed upstream: offer
+            # both sets rather than silently answering the wrong question.
+            if "accessib" in lowered:
+                return OpenToMAdapter.ACCESSIBILITY
+            if "full" in lowered:
+                return OpenToMAdapter.FULLNESS
+            return f"{OpenToMAdapter.ACCESSIBILITY}, {OpenToMAdapter.FULLNESS}"
+
         if "initial location" in lowered:
             return "Yes, No"
 
