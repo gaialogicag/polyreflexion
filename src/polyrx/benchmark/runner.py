@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypeVar, cast
 
 from polyrx.benchmark.judge import Judge, normalize_label
 from polyrx.benchmark.meta_trace_io import (
@@ -37,6 +38,9 @@ from polyrx.models.base import LLMClient
 from polyrx.models.ollama import extract_final_answer, looks_degenerate
 from polyrx.models.registry import get_client
 from polyrx.provenance import Provenance
+
+#: One of the config dataclasses a run file carries.
+_ConfigT = TypeVar("_ConfigT")
 
 
 def _registry(config: BenchmarkConfig | None = None) -> ConditionRegistry:
@@ -559,6 +563,11 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             if key not in results_by_key:
                 results_by_key[key] = {
                     "item_id": item_id,
+                    # The unit that was sampled. `item_id` identifies the
+                    # question, so without this a saved run cannot say how many
+                    # stories it drew -- which is what `num_items` means on a
+                    # dataset with `sample_by: context`.
+                    "context_id": sampling_group(item, config.dataset.sample_by),
                     "question": question,
                     "gold_label": item.gold_label,
                     "group": item.group,
@@ -582,11 +591,59 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     )
 
 
+def _restore_section(node_type: type[_ConfigT], data: object) -> _ConfigT:
+    """Rebuild one config dataclass from the plain dict a run file carries.
+
+    `save_run` writes these with `asdict`, which flattens the nested dataclasses
+    into dicts. Reading them back by hand means every field added later is
+    silently lost, so the structured schema does it instead. A run file written
+    by a different version of the schema keeps its defaults rather than
+    stopping a report from being produced.
+    """
+    if not isinstance(data, dict):
+        return node_type()
+    from omegaconf import OmegaConf
+
+    try:
+        restored = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(node_type), data))
+        return cast(_ConfigT, restored)
+    except Exception as exc:  # pragma: no cover - depends on the file on disk
+        print(f"WARNING: {node_type.__name__} in the run file could not be read ({exc}).")
+        return node_type()
+
+
+def sampling_group(item: Item, sample_by: str) -> str:
+    """The id of the unit ``sample_by`` draws: a shared context, or the item.
+
+    Mirrors the bucketing in :func:`polyrx.datasets.base.sample_by_group`. Kept
+    in step with it deliberately: a run that records a different notion of a
+    group from the one it sampled reports a count nobody can reproduce.
+    """
+    return item.item_id if sample_by == "item" else Item.content_id(item.context)
+
+
+def sampled_units(results: list[dict]) -> int:
+    """How many sampled units a set of result rows covers.
+
+    Falls back to the item id for runs saved before the group was recorded,
+    which reads as one unit per row -- wrong, but no more wrong than what those
+    files already said.
+    """
+    return len({row.get("context_id") or row["item_id"] for row in results})
+
+
 def load_run(path: Path) -> BenchmarkRun:
     """Load a previously saved benchmark JSON run."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     cfg = payload["config"]
     config = BenchmarkConfig(
+        # These four are saved and were previously dropped on the way back in,
+        # so a regenerated report named the default dataset rather than the one
+        # that produced the numbers, and a merged run saved that name again.
+        dataset=_restore_section(DatasetConfig, cfg.get("dataset")),
+        paths=_restore_section(PathsConfig, cfg.get("paths")),
+        report=_restore_section(ReportConfig, cfg.get("report")),
+        postprocess=_restore_section(PostProcessConfig, cfg.get("postprocess")),
         num_items=cfg.get("num_items", 10),
         seed=cfg.get("seed", 42),
         reflexion_depth=cfg.get("reflexion_depth", 1),
@@ -602,6 +659,10 @@ def load_run(path: Path) -> BenchmarkRun:
         summaries=payload.get("summaries", {}),
         started_at=payload.get("started_at", ""),
         finished_at=payload.get("finished_at", ""),
+        # The report's notes name the models that answered, so a regenerated
+        # report needs the run's own provenance rather than a fresh collection
+        # describing whatever machine happens to be regenerating it.
+        provenance=Provenance.from_dict(payload.get("provenance")),
     )
 
 
@@ -613,9 +674,15 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
         if key not in by_key:
             by_key[key] = {
                 "item_id": row["item_id"],
+                "context_id": row.get("context_id", ""),
                 "question": row["question"],
                 "gold_label": row["gold_label"],
-                "question_type": row["question_type"],
+                # The grouping dimension is `group` -- it was renamed from
+                # `question_type` when the runner stopped being OpenToM-only.
+                # This branch only runs for an item the base run never scored,
+                # which is exactly what extend mode produces, so the stale name
+                # made `extend_from` fail every time it was used.
+                "group": row.get("group", ""),
                 "label_space": row["label_space"],
                 "predictions": {},
                 "judgments": {},
@@ -630,10 +697,17 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             merged_summaries[item_id].update(backends)
 
     conditions = tuple(dict.fromkeys([*base.config.conditions, *extra.config.conditions]))
-    merged_story_count = len({r["item_id"] for r in by_key.values()})
+    merged_units = sampled_units(list(by_key.values()))
     return BenchmarkRun(
         config=BenchmarkConfig(
-            num_items=merged_story_count,
+            # Carried over from the run just executed: without these the merged
+            # run is saved describing the default dataset, and its report names
+            # a dataset it never scored.
+            dataset=extra.config.dataset,
+            paths=extra.config.paths,
+            report=extra.config.report,
+            postprocess=extra.config.postprocess,
+            num_items=merged_units,
             seed=base.config.seed,
             reflexion_depth=max(base.config.reflexion_depth, extra.config.reflexion_depth),
             max_workers=base.config.max_workers,

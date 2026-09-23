@@ -185,6 +185,24 @@ class Provenance:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, data: object) -> Provenance | None:
+        """Rebuild a provenance block from a saved run, or ``None`` if absent.
+
+        A run file written by another version may carry fields this one does
+        not know. Provenance describes a run rather than driving it, so an
+        unreadable block is dropped instead of stopping a report.
+        """
+        if not isinstance(data, dict):
+            return None
+        from omegaconf import OmegaConf
+
+        try:
+            restored = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(cls), data))
+        except Exception:  # pragma: no cover - depends on the file on disk
+            return None
+        return restored if isinstance(restored, cls) else None
+
     def warnings(self, config: ProvenanceConfig | None = None) -> list[str]:
         """Reasons this run is not exactly reproducible, in plain sentences."""
         short = (config or ProvenanceConfig()).short_hash_chars
