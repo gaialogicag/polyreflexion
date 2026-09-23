@@ -31,7 +31,9 @@ def _parser() -> argparse.ArgumentParser:
         choices=("show", "lock", "check"),
         help="show: print the grid; lock: record it; check: compare against the lock",
     )
-    parser.add_argument("overrides", nargs="*", help="Hydra overrides, e.g. conditions=nano_only")
+    parser.add_argument(
+        "overrides", nargs="*", help="Hydra overrides, e.g. conditions=answerer_only"
+    )
     return parser
 
 

@@ -14,7 +14,7 @@ Examples:
 Anything after the flags is a Hydra override, so the backends come from the
 same config tree the benchmarks use::
 
-    polyrx-reflect "Question..." backends.nano.model=gpt-4o-mini meta=gpqa
+    polyrx-reflect "Question..." backends.answerer.model=gpt-4o-mini meta=gpqa
 """
 
 from __future__ import annotations
@@ -65,7 +65,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("text", nargs="?", help="Question or input text (prompted if omitted)")
     parser.add_argument("--max-cycles", type=int, default=None, help="Meta cycle budget")
     parser.add_argument("--depth", type=int, default=None, help="Reflexion depth per cycle")
-    parser.add_argument("--engine", default="nano", help="Engine backend role (default nano)")
+    parser.add_argument(
+        "--engine", default="answerer", help="Engine backend role (default answerer)"
+    )
     parser.add_argument(
         "--judge", default="meta_judge", help="Judge backend role (default meta_judge)"
     )

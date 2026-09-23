@@ -23,13 +23,21 @@ from pathlib import Path
 
 
 @dataclass
-class HostedModelConfig:
-    """What every hosted provider needs, whoever serves the model.
+class ModelConfig:
+    """What every backend has, whoever serves the model and wherever it runs.
 
     A backend *role* is typed as this base class, and the concrete provider is
     chosen per role by the ``backends/role`` config group. That is what lets one
-    run answer with Gemini and judge with OpenAI without any call site knowing.
+    run answer with Gemini, judge with OpenAI and compare against weights served
+    by vLLM, without any call site knowing.
     """
+
+    model: str = "?"
+
+
+@dataclass
+class HostedModelConfig(ModelConfig):
+    """A model reached over an API, behind a key."""
 
     model: str = "?"
     #: Name of the environment variable holding the key — never the key itself.
@@ -79,8 +87,14 @@ class GeminiConfig(HostedModelConfig):
 
 
 @dataclass
-class OllamaConfig:
-    """A local Ollama backend."""
+class OllamaConfig(ModelConfig):
+    """Weights served by Ollama's own API, rather than an OpenAI-compatible one.
+
+    Only worth choosing over :class:`OpenAIConfig` with a ``base_url`` for the
+    settings below, which the compatible endpoint drops: the context and output
+    caps, the thinking flag, and the reasoning stripping. On a small reasoning
+    model those decide whether the answer is an answer or token salad.
+    """
 
     model: str = "phi4-mini-reasoning"
     host: str = "http://127.0.0.1:11434"
@@ -111,14 +125,16 @@ class BackendsConfig:
     """
 
     #: Reflexion engine and meta cycles.
-    nano: HostedModelConfig = field(default_factory=OpenAIConfig)
+    answerer: ModelConfig = field(default_factory=OpenAIConfig)
     #: Benchmark label judge (OpenToM labels, ambiguous GPQA answers).
-    judge: HostedModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-5-mini"))
+    judge: ModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-5-mini"))
     #: Polycontextural S/O/D judges — deliberately a different model from
     #: ``judge`` so meta evaluation stays independent of benchmark scoring.
-    meta_judge: HostedModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-4o"))
-    #: Local open-weights backend.
-    phi: OllamaConfig = field(default_factory=OllamaConfig)
+    meta_judge: ModelConfig = field(default_factory=lambda: OpenAIConfig(model="gpt-4o"))
+    #: The open-weights arm. Ollama by default, but nothing here requires it:
+    #: point it at vLLM, llama.cpp or any OpenAI-compatible server by selecting
+    #: a different provider for the role.
+    open_weights: ModelConfig = field(default_factory=OllamaConfig)
 
 
 @dataclass
@@ -133,9 +149,10 @@ class BackendsSchema(BackendsConfig):
     provider for each hosted role in its ``defaults``.
     """
 
-    nano: HostedModelConfig = field(default_factory=HostedModelConfig)
-    judge: HostedModelConfig = field(default_factory=HostedModelConfig)
-    meta_judge: HostedModelConfig = field(default_factory=HostedModelConfig)
+    answerer: ModelConfig = field(default_factory=ModelConfig)
+    judge: ModelConfig = field(default_factory=ModelConfig)
+    meta_judge: ModelConfig = field(default_factory=ModelConfig)
+    open_weights: ModelConfig = field(default_factory=ModelConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -532,7 +549,7 @@ class ConditionSpec:
     """One cell of the experiment grid, as it appears in ``conf/conditions``."""
 
     name: str = "?"
-    backend: str = "nano"
+    backend: str = "answerer"
     #: Reflexion tree depth. ``0`` answers the item with no reflexion pass.
     depth: int = 0
     #: Meta loop budget. ``0`` disables the meta layer. A meta condition runs a

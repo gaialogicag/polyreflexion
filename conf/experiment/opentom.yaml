@@ -17,14 +17,14 @@ experiment:
   seed: 42
   max_workers: 4
   conditions:
-    - nano_direct
-    - nano_reflexion
-    - nano_reflexion_d2
-    - nano_reflexion_d3
-    - nano_meta_c1
-    - nano_meta_c2
-    - nano_meta_c3
-    - nano_meta_c4
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_reflexion_d3
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+    - answerer_meta_c4
   use_stub: false
   cache_namespace: ""
   detailed: false

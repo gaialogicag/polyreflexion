@@ -129,7 +129,7 @@ class Condition:
 
     @property
     def family(self) -> str:
-        """Group used for report ordering: ``nano_direct`` -> ``nano``."""
+        """Group used for report ordering: ``answerer_direct`` -> ``answerer``."""
         return self.backend
 
     def label(self) -> str:
@@ -146,7 +146,7 @@ class ConditionRegistry:
     """Lookup and ordering for the known conditions.
 
     Ordering is the registration order, which is also the report column order.
-    Keeping it explicit beats sorting by name, where ``nano_meta_c10`` would
+    Keeping it explicit beats sorting by name, where ``answerer_meta_c10`` would
     land between ``c1`` and ``c2``.
     """
 
@@ -188,7 +188,7 @@ class ConditionRegistry:
     def expand_group(self, group: str) -> tuple[str, ...]:
         """Expand a shorthand group name used by the command line.
 
-        ``nano`` means every nano condition; ``nano_nod3`` is the same without
+        ``answerer`` means every answerer condition; ``answerer_nod3`` is the same without
         the expensive depth-3 run.
         """
         if group == "all":

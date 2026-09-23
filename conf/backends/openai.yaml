@@ -1,51 +1,38 @@
 # The four roles the code asks for by name. Only the models change here --
 # never a call site.
 #
+# Each role names its provider in `defaults`. That is what decides which client
+# answers the role. The blocks below then set only what differs from that
+# provider's own defaults: restating a default here would make it a value this
+# file owns, and overriding the provider from the command line would fail on a
+# field the new provider does not have.
+#
 # Keys are read from the environment by name (`api_key_env`), so this file is
 # safe to commit and safe to copy into a results directory.
-#
-# Each hosted role names its provider in `defaults`. That is what decides which
-# client answers the role; the block below only fills in that provider's fields.
 
 defaults:
   - base_backends
-  - /backends/role@nano: openai
+  - /backends/role@answerer: openai
   - /backends/role@judge: openai
   - /backends/role@meta_judge: openai
+  - /backends/role@open_weights: ollama
   - _self_
 
-nano:
+answerer:
   model: gpt-5.4-nano
-  api_key_env: OPENAI_API_KEY
-  base_url: null
-  temperature: 0.0
-  system_prompt: You are an expert in modeling others' mental states.
 
 judge:
   model: gpt-5-mini
-  api_key_env: OPENAI_API_KEY
-  base_url: null
-  temperature: 0.0
   system_prompt: You are a careful grader. Answer only with the requested label.
 
 meta_judge:
   # Deliberately a different model from `judge` so meta evaluation stays
   # independent of benchmark scoring.
   model: gpt-4o
-  api_key_env: OPENAI_API_KEY
-  base_url: null
-  temperature: 0.0
   system_prompt: You are an impartial evaluator of reasoning quality.
 
-phi:
+open_weights:
+  # Short generations are the OllamaConfig default on purpose: long chains on
+  # this model collapse into token salad. Clear the summary cache after
+  # changing anything here.
   model: phi4-mini-reasoning
-  host: http://127.0.0.1:11434
-  num_ctx: 8192
-  # Short generations on purpose: long chains on this model collapse into
-  # token salad. Clear the phi summary cache after changing this.
-  num_predict: 512
-  timeout_s: 1800
-  retries: 3
-  temperature: 0.2
-  think: false
-  strip_reasoning: true

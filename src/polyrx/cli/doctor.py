@@ -105,13 +105,19 @@ def _config(cfg: RootConfig) -> list[Check]:
 
 def _credentials(cfg: RootConfig, live: bool) -> list[Check]:
     checks: list[Check] = []
+    from polyrx.config import HostedModelConfig
+
+    # Any role can be served by any provider, so which ones need a key is read
+    # off the config rather than assumed. A role on a local runtime has no key
+    # to check and is covered by the local-backend section instead.
     roles = {
-        "nano": cfg.backends.nano,
-        "judge": cfg.backends.judge,
-        "meta_judge": cfg.backends.meta_judge,
+        name: getattr(cfg.backends, name)
+        for name in ("answerer", "judge", "meta_judge", "open_weights")
     }
 
     for role, backend in roles.items():
+        if not isinstance(backend, HostedModelConfig):
+            continue
         key = os.environ.get(backend.api_key_env, "")
         if not key:
             checks.append(
@@ -199,32 +205,40 @@ def _probe_gemini(backend) -> None:
 
 
 def _local_backend(cfg: RootConfig) -> list[Check]:
-    phi = cfg.backends.phi
+    from polyrx.config import OllamaConfig
+
+    ollama = cfg.backends.open_weights
+    # Only the Ollama runtime has a daemon to find and a model to pull. Served
+    # any other way, the role is an ordinary API backend and was already checked
+    # with the rest of them.
+    if not isinstance(ollama, OllamaConfig):
+        provider = type(ollama).__name__.replace("Config", "").lower()
+        return [Check("open_weights", OK, f"served by {provider}, not a local runtime")]
     if shutil.which("ollama") is None:
         return [
             Check(
                 "ollama",
                 WARN,
-                "not installed — phi_* conditions cannot run",
-                "https://ollama.com, then: ollama pull " + phi.model,
+                "not installed — open_weights_* conditions cannot run",
+                "https://ollama.com, then: ollama pull " + ollama.model,
             )
         ]
     try:
         import json
         import urllib.request
 
-        with urllib.request.urlopen(f"{phi.host.rstrip('/')}/api/tags", timeout=3) as resp:
+        with urllib.request.urlopen(f"{ollama.host.rstrip('/')}/api/tags", timeout=3) as resp:
             names = [m["name"] for m in json.load(resp).get("models", [])]
     except Exception:
-        return [Check("ollama", WARN, f"not reachable at {phi.host}", "ollama serve")]
+        return [Check("ollama", WARN, f"not reachable at {ollama.host}", "ollama serve")]
 
-    have = any(n == phi.model or n.startswith(f"{phi.model}:") for n in names)
+    have = any(n == ollama.model or n.startswith(f"{ollama.model}:") for n in names)
     return [
         Check(
             "ollama",
             OK if have else WARN,
-            f"running; {phi.model} {'pulled' if have else 'NOT pulled'}",
-            "" if have else f"ollama pull {phi.model}",
+            f"running; {ollama.model} {'pulled' if have else 'NOT pulled'}",
+            "" if have else f"ollama pull {ollama.model}",
         )
     ]
 

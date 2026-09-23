@@ -112,12 +112,12 @@ Override any setting on the command line, and sweep with `-m`:
 
 ```bash
 # Swap the engine model without touching a call site.
-polyrx-bench experiment=gpqa backends.nano.model=gpt-4o-mini
+polyrx-bench experiment=gpqa backends.answerer.model=gpt-4o-mini
 
 # Incremental meta budgets. Each run merges into the previous one's results,
 # and each budget continues from the previous budget's cached summaries.
 polyrx-bench -m experiment=gpqa experiment.merge_from=latest \
-    'experiment.conditions=[nano_meta_c1],[nano_meta_c2],[nano_meta_c3]'
+    'experiment.conditions=[answerer_meta_c1],[answerer_meta_c2],[answerer_meta_c3]'
 ```
 
 `merge_from` adds conditions to the **same** items. `extend_from` adds new
@@ -192,22 +192,24 @@ what a condition *is*.
 
 ```bash
 polyrx-conditions show          # print the grid with its derived cache keys
-polyrx-bench conditions=nano_only
+polyrx-bench conditions=answerer_only
 ```
 
 | Name | Backend | Depth | Meta cycles |
 |---|---|---|---|
-| `nano_direct` | nano | 0 | 0 |
-| `nano_reflexion` | nano | 1 | 0 |
-| `nano_reflexion_d2` | nano | 2 | 0 |
-| `nano_reflexion_d3` | nano | 3 | 0 |
-| `nano_meta_c1` … `nano_meta_c4` | nano | 1 | 1 … 4 |
-| `phi_direct` | phi | 0 | 0 |
-| `phi_reflexion` | phi | 1 | 0 |
-| `phi_reflexion_d2` | phi | 2 | 0 |
+| `answerer_direct` | answerer | 0 | 0 |
+| `answerer_reflexion` | answerer | 1 | 0 |
+| `answerer_reflexion_d2` | answerer | 2 | 0 |
+| `answerer_reflexion_d3` | answerer | 3 | 0 |
+| `answerer_meta_c1` … `answerer_meta_c4` | answerer | 1 | 1 … 4 |
+| `open_weights_direct` | open_weights | 0 | 0 |
+| `open_weights_reflexion` | open_weights | 1 | 0 |
+| `open_weights_reflexion_d2` | open_weights | 2 | 0 |
+| `open_weights_reflexion_d3` | open_weights | 3 | 0 |
+| `open_weights_meta_c1` … `open_weights_meta_c4` | open_weights | 1 | 1 … 4 |
 
-Group shorthands work on the command line: `nano` is every nano condition,
-`nano_nod3` is the same without the expensive depth-3 run, `all` is everything.
+Group shorthands work on the command line: `answerer` is every answerer condition,
+`answerer_nod3` is the same without the expensive depth-3 run, `all` is everything.
 
 Adding a condition is one entry in `conf/conditions/published.yaml`. There is
 no lookup table to keep in sync.
@@ -229,10 +231,10 @@ Call sites ask for a **role**, never a model name:
 
 | Role | Used for | Default |
 |---|---|---|
-| `nano` | Reflexion engine and meta cycles | `gpt-5.4-nano` |
+| `answerer` | Reflexion engine and meta cycles | `gpt-5.4-nano` |
 | `judge` | Benchmark label scoring | `gpt-5-mini` |
 | `meta_judge` | The three polycontextural judges | `gpt-4o` |
-| `phi` | Local open-weights backend via Ollama | `phi4-mini-reasoning` |
+| `open_weights` | The open-weights arm it is compared against | `phi4-mini-reasoning` |
 
 `meta_judge` is deliberately a different model from `judge` so meta evaluation
 stays independent of benchmark scoring.
@@ -244,26 +246,44 @@ polyrx-bench backends=gemini     # every hosted role on Google Gemini
 polyrx-bench backends=local      # every role through Ollama
 ```
 
-Each hosted role names its provider in the backends file's `defaults`, so the
-provider is a per-role choice, not a per-run one. Answering with Gemini while
-keeping the published OpenAI judges:
+Every role names its provider in the backends file's `defaults`, so the provider
+is a per-role choice, not a per-run one. Answering with Gemini while keeping the
+published OpenAI judges:
 
 ```bash
-polyrx-bench backends/role@backends.nano=gemini \
-  backends.nano.model=gemini-2.5-flash \
-  backends.nano.api_key_env=GEMINI_API_KEY
+polyrx-bench backends/role@backends.answerer=gemini \
+  backends.answerer.model=gemini-2.5-flash \
+  backends.answerer.api_key_env=GEMINI_API_KEY
 ```
 
-Gemini goes through the `google-genai` SDK rather than an OpenAI-compatible
-shim, because the shim drops `thinking_budget` — and on these models how much
-the model is allowed to think changes the answer, so it belongs in the recorded
-config. It needs `pip install -e ".[gemini]"` and `GEMINI_API_KEY`.
+Nothing ties a role to a provider, in either direction. `open_weights` defaults
+to Ollama but is not bound to it — point it at vLLM, llama.cpp or any other
+OpenAI-compatible server:
+
+```bash
+polyrx-bench backends/role@backends.open_weights=openai \
+  backends.open_weights.model=Qwen/Qwen2.5-7B-Instruct \
+  backends.open_weights.base_url=http://127.0.0.1:8000/v1 \
+  backends.open_weights.api_key_env=VLLM_API_KEY
+```
 
 | Provider | Config class | Key variable | Extra fields |
 |---|---|---|---|
 | OpenAI and compatible gateways | `OpenAIConfig` | `OPENAI_API_KEY` | `base_url` |
 | Google Gemini | `GeminiConfig` | `GEMINI_API_KEY` | `thinking_budget`, `max_output_tokens` |
-| Ollama, local | `OllamaConfig` | none | `host`, `num_ctx`, `num_predict` |
+| Ollama | `OllamaConfig` | none | `host`, `num_ctx`, `num_predict`, `think` |
+
+Gemini goes through the `google-genai` SDK rather than an OpenAI-compatible
+shim, because the shim drops `thinking_budget` — and on these models how much
+the model is allowed to think changes the answer, so it belongs in the recorded
+config. It needs `pip install -e ".[gemini]"` and `GEMINI_API_KEY`. `OllamaConfig`
+earns its place the same way: the compatible endpoint drops `num_ctx`,
+`num_predict` and the reasoning stripping, and a small reasoning model needs all
+three to produce an answer rather than token salad.
+
+A backends file sets only what differs from its provider's own defaults. Restating
+a default would make it a value the file owns, and overriding the provider from
+the command line would then fail on a field the new provider does not have.
 
 Only API keys come from the environment. A config object holds the *name* of
 the variable to read, never the value, so a resolved config can be written into
@@ -339,8 +359,8 @@ run rather than left for a reader to notice.
 
 One thing worth knowing when comparing a meta condition against plain
 reflexion: meta cycle 0 runs its own depth-1 reflexion, independent of the
-`nano_reflexion` summary cache. Part of any gap between `nano_meta_cN` and
-`nano_reflexion` is therefore sampling variance rather than the meta layer.
+`answerer_reflexion` summary cache. Part of any gap between `answerer_meta_cN` and
+`answerer_reflexion` is therefore sampling variance rather than the meta layer.
 
 Prompt edits invalidate cached summaries. Bump `experiment.cache_namespace`
 whenever a template changes, or the next run silently reuses summaries built by

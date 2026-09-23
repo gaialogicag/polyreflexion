@@ -37,10 +37,10 @@ from polyrx.config import ReportConfig
 
 
 def _pairwise_vs_direct(results: list[dict], condition: str) -> dict[str, int]:
-    """Count wins/losses vs nano_direct on the same questions."""
+    """Count wins/losses vs answerer_direct on the same questions."""
     wins = losses = ties = both_correct = both_wrong = 0
     for row in results:
-        j_direct = row.get("judgments", {}).get("nano_direct")
+        j_direct = row.get("judgments", {}).get("answerer_direct")
         j_cond = row.get("judgments", {}).get(condition)
         if not j_direct or not j_cond:
             continue
@@ -263,7 +263,7 @@ def write_detailed_report(
     run: BenchmarkRun,
     report_path: Path,
     *,
-    baseline: str = "nano_direct",
+    baseline: str = "answerer_direct",
     report: ReportConfig | None = None,
 ) -> Path:
     """Write standard report plus a detailed analysis markdown file."""
@@ -347,20 +347,20 @@ def write_detailed_report(
             )
 
     # Meta vs reflexion d1 when both present
-    if "nano_reflexion" in metrics and any(c.startswith("nano_meta") for c in metrics):
+    if "answerer_reflexion" in metrics and any(c.startswith("answerer_meta") for c in metrics):
         lines.extend(["", "## Meta layer vs plain reflexion (depth 1)", ""])
-        ref_acc = metrics["nano_reflexion"].accuracy
+        ref_acc = metrics["answerer_reflexion"].accuracy
         for cond in ranked:
-            if not cond.startswith("nano_meta"):
+            if not cond.startswith("answerer_meta"):
                 continue
             m = metrics[cond]
             lines.append(
-                f"- `{cond}`: {m.accuracy:.3f} vs `nano_reflexion` {ref_acc:.3f} "
+                f"- `{cond}`: {m.accuracy:.3f} vs `answerer_reflexion` {ref_acc:.3f} "
                 f"({m.accuracy - ref_acc:+.3f})"
             )
 
     # Per-type delta meta c2 vs direct
-    meta_conds = [c for c in ranked if c.startswith("nano_meta")]
+    meta_conds = [c for c in ranked if c.startswith("answerer_meta")]
     if baseline in metrics and meta_conds:
         lines.extend(["", "## Where meta helps or hurts (by question type)", ""])
         types = sorted({t for m in metrics.values() for t in m.by_type})
@@ -381,9 +381,9 @@ def write_detailed_report(
     compare_conditions = [
         c for c in ranked if c != baseline and c in {*run.config.conditions, *metrics}
     ]
-    meta_conds = [c for c in compare_conditions if c.startswith("nano_meta")]
+    meta_conds = [c for c in compare_conditions if c.startswith("answerer_meta")]
     reflex_conds = [
-        c for c in compare_conditions if "reflexion" in c and not c.startswith("nano_meta")
+        c for c in compare_conditions if "reflexion" in c and not c.startswith("answerer_meta")
     ]
 
     if baseline in metrics and compare_conditions:
@@ -447,7 +447,7 @@ def write_detailed_report(
         )
 
     # --- Polycontextural dimension attribution (theory-linked) ---
-    meta_conds_for_attr = [c for c in ranked if c.startswith("nano_meta")]
+    meta_conds_for_attr = [c for c in ranked if c.startswith("answerer_meta")]
     if baseline in metrics and meta_conds_for_attr and run.summaries:
         lines.extend(
             [

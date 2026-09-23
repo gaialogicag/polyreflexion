@@ -2,7 +2,7 @@
 # GPQA Diamond: 198 graduate-level biology / physics / chemistry items.
 #
 # When comparing a meta condition against plain reflexion, note that meta
-# cycle 0 runs its own depth-1 reflexion independently of the nano_reflexion
+# cycle 0 runs its own depth-1 reflexion independently of the answerer_reflexion
 # summary cache, so part of any gap is sampling variance.
 
 defaults:
@@ -17,12 +17,12 @@ experiment:
   seed: 42
   max_workers: 4
   conditions:
-    - nano_direct
-    - nano_reflexion
-    - nano_reflexion_d2
-    - nano_meta_c1
-    - nano_meta_c2
-    - nano_meta_c3
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
   use_stub: false
   cache_namespace: ""
   detailed: false

@@ -3,12 +3,12 @@
 
 Pipeline (per the project spec):
 
-1. **Baseline reflexion** runs on the nano OpenAI model (`OPENAI_MODEL_NANO`,
+1. **Baseline reflexion** runs on the answerer OpenAI model (`OPENAI_MODEL_NANO`,
    default gpt-5.4-nano) — this is cycle 0 of the meta run.
 2. The three **polycontextural judges** run on the meta judge model
    (`OPENAI_MODEL_META_JUDGE`, default gpt-4o — deliberately *not* the OpenToM
    benchmark judge).
-3. Every follow-up **meta cycle** (expansion / refinement / reset) runs on nano
+3. Every follow-up **meta cycle** (expansion / refinement / reset) runs on answerer
    again.
 
 Prompts for this script are answer-oriented (``meta/ask_prompts.py``): the
@@ -60,7 +60,7 @@ def print_comparison(result: MetaResult) -> None:
     print(_wrap(result.question))
 
     print("\n" + "=" * 78)
-    print("1) BASELINE REFLEXION (nano, cycle 0)")
+    print("1) BASELINE REFLEXION (answerer, cycle 0)")
     print("=" * 78)
     if baseline is None:
         print("(engine failed before producing a baseline answer)")
@@ -72,7 +72,7 @@ def print_comparison(result: MetaResult) -> None:
         )
 
     print("\n" + "=" * 78)
-    print("2) META REFLEXION (nano cycles steered by the meta layer)")
+    print("2) META REFLEXION (answerer cycles steered by the meta layer)")
     print("=" * 78)
     print(_wrap(result.final_answer))
     if selected is not None:
@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_client = StubLLMClient()
         judge_client = StubMetaClient(triples=[("A", "F", "R"), ("A", "W", "W")])
     else:
-        engine_client = get_client("nano")  # reflexion + meta cycles
+        engine_client = get_client("answerer")  # reflexion + meta cycles
         judge_client = get_client("meta_judge")  # polycontextural judges
 
     # The ask sets synthesize one best reply rather than surveying the three
@@ -166,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         "Running baseline reflexion + meta cycles "
-        f"(engine={cfg.backends.nano.model}, judges={cfg.backends.meta_judge.model}, "
+        f"(engine={cfg.backends.answerer.model}, judges={cfg.backends.meta_judge.model}, "
         f"max_cycles={max_cycles})..."
     )
     result = controller.run(question)

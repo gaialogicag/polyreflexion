@@ -1,0 +1,27 @@
+# The answerer family without the local backend. Useful when Ollama is not running.
+
+defaults:
+  - base_conditions
+  - published
+
+conditions:
+  - name: answerer_direct
+    backend: answerer
+  - name: answerer_reflexion
+    backend: answerer
+    depth: 1
+  - name: answerer_reflexion_d2
+    backend: answerer
+    depth: 2
+  - name: answerer_meta_c1
+    backend: answerer
+    depth: 1
+    meta_cycles: 1
+  - name: answerer_meta_c2
+    backend: answerer
+    depth: 1
+    meta_cycles: 2
+  - name: answerer_meta_c3
+    backend: answerer
+    depth: 1
+    meta_cycles: 3

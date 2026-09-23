@@ -20,6 +20,7 @@ from polyrx.config import (
     GeminiConfig,
     MetaLayerConfig,
     MetaPrompts,
+    OllamaConfig,
     OpenAIConfig,
     PathsConfig,
     PostProcessConfig,
@@ -37,9 +38,11 @@ def register() -> ConfigStore:
     cs.store(group="experiment", name="base_experiment", node=ExperimentConfig)
     cs.store(group="backends", name="base_backends", node=BackendsSchema)
     # One schema per provider, selected per role: a backends file writes
-    # "- /backends/role@judge: openai" to say who serves the judge.
+    # "- /backends/role@judge: openai" to say who serves the judge. Any role can
+    # take any provider, so the open-weights arm is not tied to one runtime.
     cs.store(group="backends/role", name="openai", node=OpenAIConfig)
     cs.store(group="backends/role", name="gemini", node=GeminiConfig)
+    cs.store(group="backends/role", name="ollama", node=OllamaConfig)
     cs.store(group="dataset", name="base_dataset", node=DatasetConfig)
     cs.store(name="base_field_map", node=FieldMap)
     cs.store(group="engine", name="base_engine", node=EngineConfig)

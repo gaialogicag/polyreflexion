@@ -16,48 +16,71 @@ defaults:
 # meta_cycles 0 disables the meta layer. A meta condition runs a depth-1
 # reflexion on cycle 0, which is why they all carry depth 1.
 conditions:
-  - name: nano_direct
-    backend: nano
+  - name: answerer_direct
+    backend: answerer
 
-  - name: nano_reflexion
-    backend: nano
+  - name: answerer_reflexion
+    backend: answerer
     depth: 1
-  - name: nano_reflexion_d2
-    backend: nano
+  - name: answerer_reflexion_d2
+    backend: answerer
     depth: 2
-  - name: nano_reflexion_d3
-    backend: nano
+  - name: answerer_reflexion_d3
+    backend: answerer
     depth: 3
 
-  - name: nano_meta_c1
-    backend: nano
+  - name: answerer_meta_c1
+    backend: answerer
     depth: 1
     meta_cycles: 1
-  - name: nano_meta_c2
-    backend: nano
+  - name: answerer_meta_c2
+    backend: answerer
     depth: 1
     meta_cycles: 2
-  - name: nano_meta_c3
-    backend: nano
+  - name: answerer_meta_c3
+    backend: answerer
     depth: 1
     meta_cycles: 3
-  - name: nano_meta_c4
-    backend: nano
+  - name: answerer_meta_c4
+    backend: answerer
     depth: 1
     meta_cycles: 4
 
-  - name: nano_meta
-    backend: nano
+  - name: answerer_meta
+    backend: answerer
     depth: 1
     meta_cycles: 2
-    alias_of: nano_meta_c2
+    alias_of: answerer_meta_c2
     note: Legacy alias kept for older result files.
 
-  - name: phi_direct
-    backend: phi
-  - name: phi_reflexion
-    backend: phi
+  # The open-weights arm mirrors the answerer arm cell for cell, so a gap
+  # between them is a difference between the models rather than a difference
+  # in how far each one was allowed to go.
+  - name: open_weights_direct
+    backend: open_weights
+  - name: open_weights_reflexion
+    backend: open_weights
     depth: 1
-  - name: phi_reflexion_d2
-    backend: phi
+  - name: open_weights_reflexion_d2
+    backend: open_weights
     depth: 2
+  - name: open_weights_reflexion_d3
+    backend: open_weights
+    depth: 3
+
+  - name: open_weights_meta_c1
+    backend: open_weights
+    depth: 1
+    meta_cycles: 1
+  - name: open_weights_meta_c2
+    backend: open_weights
+    depth: 1
+    meta_cycles: 2
+  - name: open_weights_meta_c3
+    backend: open_weights
+    depth: 1
+    meta_cycles: 3
+  - name: open_weights_meta_c4
+    backend: open_weights
+    depth: 1
+    meta_cycles: 4

@@ -1,7 +1,7 @@
 """Factory turning a backend *role* into a configured client.
 
-Call sites ask for a role — ``"nano"``, ``"judge"``, ``"meta_judge"``,
-``"phi"`` — and never name a model. Which model answers a role is a config
+Call sites ask for a role — ``"answerer"``, ``"judge"``, ``"meta_judge"``,
+``"ollama"`` — and never name a model. Which model answers a role is a config
 decision, which is what makes swapping providers a one-line change in YAML
 rather than a search across the codebase. The provider is read off the type of
 the role's config, so a run can answer with Gemini and judge with OpenAI.
@@ -12,7 +12,7 @@ from __future__ import annotations
 from polyrx.config import (
     BackendsConfig,
     GeminiConfig,
-    HostedModelConfig,
+    ModelConfig,
     OllamaConfig,
     OpenAIConfig,
     PostProcessConfig,
@@ -52,12 +52,12 @@ class ClientRegistry:
         if isinstance(config, OllamaConfig):
             client: LLMClient = OllamaClient(config, extraction=self.postprocess.extraction)
         # Gemini before OpenAI: both derive from HostedModelConfig, and a bare
-        # HostedModelConfig means no provider was selected for this role.
+        # ModelConfig means no provider was selected for this role.
         elif isinstance(config, GeminiConfig):
             client = GeminiClient(config)
         elif isinstance(config, OpenAIConfig):
             client = OpenAIClient(config)
-        elif isinstance(config, HostedModelConfig):
+        elif isinstance(config, ModelConfig):
             raise TypeError(
                 f"Role {role!r} has no provider selected. A backends config must name one "
                 f"per hosted role in its defaults, e.g. '- /backends/role@{role}: openai'."

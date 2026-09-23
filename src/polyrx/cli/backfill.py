@@ -14,6 +14,7 @@ from pathlib import Path
 from polyrx.benchmark.opentom_loader import load_items
 from polyrx.benchmark.runner import backfill_meta_traces, load_run
 from polyrx.cli.compose import load_config
+from polyrx.config import HostedModelConfig
 from polyrx.engine import PromptRegistry
 from polyrx.models.registry import set_active_backends
 
@@ -26,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--summary-key",
         default="",
-        help="Only backfill one summary key (e.g. nano_meta_c2)",
+        help="Only backfill one summary key (e.g. answerer_meta_c2)",
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing traces")
     parser.add_argument("--stub", action="store_true", help="Use stub meta clients")
@@ -39,8 +40,9 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = load_config(args.overrides)
     set_active_backends(cfg.backends, cfg.postprocess)
-    if not args.stub:
-        # Fails with the variable name when the key is missing.
+    if not args.stub and isinstance(cfg.backends.meta_judge, HostedModelConfig):
+        # Fails with the variable name when the key is missing. A meta judge on
+        # a local runtime has no key to check.
         cfg.backends.meta_judge.api_key()
 
     run = load_run(args.run_json)

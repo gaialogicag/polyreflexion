@@ -14,9 +14,9 @@ experiment:
   seed: 42
   max_workers: 2
   conditions:
-    - nano_direct
-    - nano_reflexion
-    - nano_meta_c1
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_meta_c1
   use_stub: true
   cache_namespace: smoke
   detailed: false

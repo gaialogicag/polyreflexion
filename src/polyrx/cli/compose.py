@@ -22,7 +22,7 @@ def load_config(overrides: list[str] | None = None) -> RootConfig:
     Parameters
     ----------
     overrides:
-        Hydra-style overrides, e.g. ``["meta=ask", "backends.nano.model=gpt-4o"]``.
+        Hydra-style overrides, e.g. ``["meta=ask", "backends.answerer.model=gpt-4o"]``.
     """
     register()
     try:

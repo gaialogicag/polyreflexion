@@ -7,8 +7,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 # Summary cache keys aligned with Condition.summary_key in polyrx.conditions.
-REFLEXION_SUMMARY_KEY = "nano"
-META_SUMMARY_KEYS = ("nano_meta_c1", "nano_meta_c2", "nano_meta_c3", "nano_meta_c4")
+REFLEXION_SUMMARY_KEY = "answerer"
+META_SUMMARY_KEYS = ("answerer_meta_c1", "answerer_meta_c2", "answerer_meta_c3", "answerer_meta_c4")
 
 # Question types where wrong answers usually reflect faulty ToM inference.
 INFERENCE_QUESTION_TYPES = frozenset({"location-fo", "location-so", "multihop-fo", "multihop-so"})

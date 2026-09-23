@@ -8,7 +8,7 @@ defaults:
   - openai
   - _self_
 
-nano:
+answerer:
   # Points at an OpenAI-compatible gateway in front of Ollama.
   model: qwen2.5:7b
   base_url: http://127.0.0.1:11434/v1

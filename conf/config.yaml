@@ -1,9 +1,9 @@
 # Root configuration. Every entry point composes from here.
 #
 # Override anything on the command line:
-#   polyrx-bench experiment.num_items=50 backends.nano.model=gpt-4o-mini
+#   polyrx-bench experiment.num_items=50 backends.answerer.model=gpt-4o-mini
 # Sweep with -m (Hydra multirun), which replaces the old incremental scripts:
-#   polyrx-bench -m experiment=gpqa 'experiment.conditions=[nano_meta_c1],[nano_meta_c2]'
+#   polyrx-bench -m experiment=gpqa 'experiment.conditions=[answerer_meta_c1],[answerer_meta_c2]'
 
 defaults:
   # The structured schema from polyreflexion.config, registered in conf_store.

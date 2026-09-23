@@ -20,7 +20,7 @@ A GPQA run::
 Incremental meta budgets, each continuing from the previous one's summaries::
 
     polyrx-bench -m experiment=gpqa experiment.merge_from=latest \\
-        'experiment.conditions=[nano_meta_c1],[nano_meta_c2],[nano_meta_c3]'
+        'experiment.conditions=[answerer_meta_c1],[answerer_meta_c2],[answerer_meta_c3]'
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from polyrx.conditions import (
     require_lock_match,
 )
 from polyrx.conf_store import register
-from polyrx.config import RootConfig
+from polyrx.config import HostedModelConfig, RootConfig
 from polyrx.models.registry import set_active_backends
 from polyrx.provenance import ModelInfo, Provenance
 from polyrx.resources import find_conf_dir
@@ -92,7 +92,7 @@ def _condition_registry(cfg: RootConfig) -> ConditionRegistry:
 
 
 def _expand_conditions(names: list[str], registry: ConditionRegistry) -> tuple[str, ...]:
-    """Expand group shorthands (``nano``, ``nano_nod3``, ``all``) to real names."""
+    """Expand group shorthands (``answerer``, ``answerer_nod3``, ``all``) to real names."""
     expanded: list[str] = []
     for name in names:
         if name in registry.names():
@@ -112,11 +112,16 @@ def _require_credentials(cfg: RootConfig) -> None:
     """Fail before any work when a needed key is missing."""
     if cfg.experiment.use_stub:
         return
+    # A role served by a local runtime has no key to require, so what needs one
+    # is read off each role's config rather than assumed from its name.
+    backends = (
+        getattr(cfg.backends, name) for name in ("answerer", "judge", "meta_judge", "open_weights")
+    )
     missing = sorted(
         {
             backend.api_key_env
-            for backend in (cfg.backends.nano, cfg.backends.judge, cfg.backends.meta_judge)
-            if not os.environ.get(backend.api_key_env)
+            for backend in backends
+            if isinstance(backend, HostedModelConfig) and not os.environ.get(backend.api_key_env)
         }
     )
     if missing:
@@ -143,26 +148,20 @@ def _prompt_set_name() -> str:
 def _model_info(cfg: RootConfig) -> list[ModelInfo]:
     """Record the models that will actually be called, for the run's provenance."""
     infos: list[ModelInfo] = []
-    for role in ("nano", "judge", "meta_judge"):
+    for role in ("answerer", "judge", "meta_judge", "open_weights"):
         backend = getattr(cfg.backends, role)
+        # The provider is whatever the config for this role turned out to be --
+        # reading it off the type is what keeps the record true for a run that
+        # mixes providers, rather than labelling everything as one of them.
         infos.append(
             ModelInfo(
                 role=role,
-                backend="openai",
+                backend=type(backend).__name__.replace("Config", "").lower(),
                 model=backend.model,
-                base_url=backend.base_url,
-                temperature=backend.temperature,
+                base_url=getattr(backend, "base_url", None) or getattr(backend, "host", None),
+                temperature=getattr(backend, "temperature", None),
             )
         )
-    infos.append(
-        ModelInfo(
-            role="phi",
-            backend="ollama",
-            model=cfg.backends.phi.model,
-            base_url=cfg.backends.phi.host,
-            temperature=cfg.backends.phi.temperature,
-        )
-    )
     return infos
 
 

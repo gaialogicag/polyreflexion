@@ -5,54 +5,37 @@
 # Unlike the OpenAI-compatible gateway trick in `local.yaml`, this goes through
 # Gemini's own SDK, so `thinking_budget` is a real, recorded part of the run
 # rather than a parameter a compatibility shim quietly drops.
+#
+# As in `openai.yaml`, each block sets only what differs from the provider's
+# own defaults.
 
 defaults:
   - base_backends
-  - /backends/role@nano: gemini
+  - /backends/role@answerer: gemini
   - /backends/role@judge: gemini
   - /backends/role@meta_judge: gemini
+  - /backends/role@open_weights: ollama
   - _self_
 
-nano:
+answerer:
   model: gemini-2.5-flash
-  api_key_env: GEMINI_API_KEY
-  base_url: null
-  temperature: 0.0
-  system_prompt: You are an expert in modeling others' mental states.
-  # The reflexion engine calls this role once per tree node, so thinking is off
-  # by default: the tree is the reasoning, and paying for both is the expensive
-  # way to confound what the benchmark is measuring.
+  # The reflexion engine calls this role once per tree node, so thinking is off:
+  # the tree is the reasoning, and paying for both is the expensive way to
+  # confound what the benchmark is measuring.
   thinking_budget: 0
-  max_output_tokens: null
 
 judge:
   model: gemini-2.5-flash
-  api_key_env: GEMINI_API_KEY
-  base_url: null
-  temperature: 0.0
   system_prompt: You are a careful grader. Answer only with the requested label.
   thinking_budget: 0
-  max_output_tokens: null
 
 meta_judge:
   # Deliberately a different model from `judge` so meta evaluation stays
   # independent of benchmark scoring.
   model: gemini-2.5-pro
-  api_key_env: GEMINI_API_KEY
-  base_url: null
-  temperature: 0.0
   system_prompt: You are an impartial evaluator of reasoning quality.
   # gemini-2.5-pro cannot turn thinking off; -1 lets the model choose.
   thinking_budget: -1
-  max_output_tokens: null
 
-phi:
+open_weights:
   model: phi4-mini-reasoning
-  host: http://127.0.0.1:11434
-  num_ctx: 8192
-  num_predict: 512
-  timeout_s: 1800
-  retries: 3
-  temperature: 0.2
-  think: false
-  strip_reasoning: true

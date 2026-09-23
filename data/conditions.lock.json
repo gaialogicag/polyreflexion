@@ -1,89 +1,124 @@
 {
   "_comment": "The condition grid the published results were produced with. Every cached summary is keyed by summary_key, so a change here orphans the cache. Regenerate deliberately with: polyrx-conditions lock",
   "conditions": {
-    "nano_direct": {
-      "backend": "nano",
+    "answerer_direct": {
+      "backend": "answerer",
       "depth": 0,
       "meta_cycles": 0,
       "prior_summary_key": null,
       "summary_key": ""
     },
-    "nano_meta": {
-      "backend": "nano",
+    "answerer_meta": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 2,
-      "prior_summary_key": "nano_meta_c1",
-      "summary_key": "nano_meta_c2"
+      "prior_summary_key": "answerer_meta_c1",
+      "summary_key": "answerer_meta_c2"
     },
-    "nano_meta_c1": {
-      "backend": "nano",
+    "answerer_meta_c1": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 1,
       "prior_summary_key": null,
-      "summary_key": "nano_meta_c1"
+      "summary_key": "answerer_meta_c1"
     },
-    "nano_meta_c2": {
-      "backend": "nano",
+    "answerer_meta_c2": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 2,
-      "prior_summary_key": "nano_meta_c1",
-      "summary_key": "nano_meta_c2"
+      "prior_summary_key": "answerer_meta_c1",
+      "summary_key": "answerer_meta_c2"
     },
-    "nano_meta_c3": {
-      "backend": "nano",
+    "answerer_meta_c3": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 3,
-      "prior_summary_key": "nano_meta_c2",
-      "summary_key": "nano_meta_c3"
+      "prior_summary_key": "answerer_meta_c2",
+      "summary_key": "answerer_meta_c3"
     },
-    "nano_meta_c4": {
-      "backend": "nano",
+    "answerer_meta_c4": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 4,
-      "prior_summary_key": "nano_meta_c3",
-      "summary_key": "nano_meta_c4"
+      "prior_summary_key": "answerer_meta_c3",
+      "summary_key": "answerer_meta_c4"
     },
-    "nano_reflexion": {
-      "backend": "nano",
+    "answerer_reflexion": {
+      "backend": "answerer",
       "depth": 1,
       "meta_cycles": 0,
       "prior_summary_key": null,
-      "summary_key": "nano"
+      "summary_key": "answerer"
     },
-    "nano_reflexion_d2": {
-      "backend": "nano",
+    "answerer_reflexion_d2": {
+      "backend": "answerer",
       "depth": 2,
       "meta_cycles": 0,
       "prior_summary_key": null,
-      "summary_key": "nano_d2"
+      "summary_key": "answerer_d2"
     },
-    "nano_reflexion_d3": {
-      "backend": "nano",
+    "answerer_reflexion_d3": {
+      "backend": "answerer",
       "depth": 3,
       "meta_cycles": 0,
       "prior_summary_key": null,
-      "summary_key": "nano_d3"
+      "summary_key": "answerer_d3"
     },
-    "phi_direct": {
-      "backend": "phi",
+    "open_weights_direct": {
+      "backend": "open_weights",
       "depth": 0,
       "meta_cycles": 0,
       "prior_summary_key": null,
       "summary_key": ""
     },
-    "phi_reflexion": {
-      "backend": "phi",
+    "open_weights_meta_c1": {
+      "backend": "open_weights",
+      "depth": 1,
+      "meta_cycles": 1,
+      "prior_summary_key": null,
+      "summary_key": "open_weights_meta_c1"
+    },
+    "open_weights_meta_c2": {
+      "backend": "open_weights",
+      "depth": 1,
+      "meta_cycles": 2,
+      "prior_summary_key": "open_weights_meta_c1",
+      "summary_key": "open_weights_meta_c2"
+    },
+    "open_weights_meta_c3": {
+      "backend": "open_weights",
+      "depth": 1,
+      "meta_cycles": 3,
+      "prior_summary_key": "open_weights_meta_c2",
+      "summary_key": "open_weights_meta_c3"
+    },
+    "open_weights_meta_c4": {
+      "backend": "open_weights",
+      "depth": 1,
+      "meta_cycles": 4,
+      "prior_summary_key": "open_weights_meta_c3",
+      "summary_key": "open_weights_meta_c4"
+    },
+    "open_weights_reflexion": {
+      "backend": "open_weights",
       "depth": 1,
       "meta_cycles": 0,
       "prior_summary_key": null,
-      "summary_key": "phi"
+      "summary_key": "open_weights"
     },
-    "phi_reflexion_d2": {
-      "backend": "phi",
+    "open_weights_reflexion_d2": {
+      "backend": "open_weights",
       "depth": 2,
       "meta_cycles": 0,
       "prior_summary_key": null,
-      "summary_key": "phi_d2"
+      "summary_key": "open_weights_d2"
+    },
+    "open_weights_reflexion_d3": {
+      "backend": "open_weights",
+      "depth": 3,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "open_weights_d3"
     }
   }
 }
