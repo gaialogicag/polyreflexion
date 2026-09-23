@@ -24,3 +24,6 @@ venv/
 .mypy_cache/
 .coverage
 htmlcov/
+
+# Internal planning notes. Not published with the method.
+docs/prd-*.md
