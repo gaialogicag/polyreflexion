@@ -27,7 +27,7 @@ from polyrx.benchmark.qualitative_analysis import (
     stories_with_markers,
     summary_length_stats,
 )
-from polyrx.benchmark.report import write_report
+from polyrx.benchmark.report import charts_dir_for, write_report
 from polyrx.benchmark.runner import (
     BenchmarkRun,
     load_meta_traces_for_run,
@@ -528,7 +528,8 @@ def write_detailed_report(
                     )
                 lines.append("")
 
-    charts = summary_path.parent / "charts"
+    # The summary report drew these, so ask it where they went.
+    charts = charts_dir_for(summary_path)
 
     def rel(p: Path) -> str:
         """Chart paths in the report are relative to the report itself."""

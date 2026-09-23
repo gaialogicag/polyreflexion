@@ -114,6 +114,17 @@ def _escape_cell(text: str, max_len: int = 80) -> str:
     return text
 
 
+def charts_dir_for(report_path: Path) -> Path:
+    """Directory holding one report's charts, keyed on that report's filename.
+
+    A single shared directory means every run overwrites the previous run's
+    figures. Because a report links its charts relatively, the old report does
+    not lose them -- it silently renders the newest run's figures under its own
+    numbers, which is worse than losing them.
+    """
+    return report_path.parent / "charts" / report_path.stem
+
+
 def write_report(
     run: BenchmarkRun,
     report_path: Path,
@@ -129,7 +140,7 @@ def write_report(
     # "by question type" rather than a generic word.
     group_name = run.config.dataset.group_name or "group"
     metrics = compute_metrics(run.results)
-    charts_dir = report_path.parent / "charts"
+    charts_dir = charts_dir_for(report_path)
     charts_dir.mkdir(parents=True, exist_ok=True)
 
     chart_overall = charts_dir / "scores_by_condition.png"
