@@ -44,7 +44,7 @@ jobs:
       - name: Offline sweep, and the interactive tools
         run: |
           polyrx-bench -m experiment=smoke \
-            'experiment.conditions=[nano_direct],[nano_reflexion]'
+            'experiment.conditions=[answerer_direct],[answerer_reflexion]'
           polyrx-ask --stub "offline smoke test"
           polyrx-reflect --stub "offline smoke test"
       - name: A new dataset needs config only
