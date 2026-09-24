@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import csv
 import json
+import random
 import re
 from pathlib import Path
 
@@ -74,13 +75,7 @@ class GPQAAdapter(DatasetAdapter):
         if not stem or not correct or not all(wrong):
             raise ValueError("Official GPQA row is missing a question or an answer")
 
-        # Reuse the shared deterministic shuffle so choice order matches the
-        # tabular adapter's, and stays stable across runs.
-        options = tabular._choices(
-            {"_c": correct, "_w1": wrong[0], "_w2": wrong[1], "_w3": wrong[2]},
-            stem,
-            correct,
-        ) or [correct, *wrong]
+        options = self._shuffled_options(stem, correct, wrong)
         gold = next(
             letter for letter, text in zip(CHOICE_LETTERS, options, strict=False) if text == correct
         )
@@ -99,6 +94,26 @@ class GPQAAdapter(DatasetAdapter):
             group=domain,
             metadata={"choices": dict(zip(CHOICE_LETTERS, options, strict=False))},
         )
+
+    def _shuffled_options(self, stem: str, correct: str, wrong: list[str]) -> list[str]:
+        """The four options in presentation order, shuffled per question.
+
+        Shuffled here rather than through the tabular adapter. That adapter
+        decides what to shuffle from ``fields.correct_choice`` and
+        ``fields.incorrect_choices``, which name columns of a CSV; this adapter
+        parses its own source and has no such columns, so the call it used to
+        make matched neither branch, returned nothing, and left the correct
+        answer first in all 198 questions -- scoring a model that always
+        answered "A" at 100%.
+
+        The seed is the question and its correct answer, so the order is stable
+        across runs and across the official release and the mirror, and a
+        cached summary still refers to the question it was built from.
+        """
+        options = [correct, *wrong]
+        digest = Item.content_id(stem, correct, id_chars=self.config.shuffle_hash_chars)
+        random.Random(int(digest, 16)).shuffle(options)
+        return options
 
     def _from_mirror(self, row: dict[str, str], domains: dict[str, str]) -> Item:
         problem = (row.get("problem") or "").strip()
