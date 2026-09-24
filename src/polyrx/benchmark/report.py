@@ -117,14 +117,17 @@ def _escape_cell(text: str, max_len: int = 80) -> str:
 
 
 def charts_dir_for(report_path: Path) -> Path:
-    """Directory holding one report's charts, keyed on that report's filename.
+    """Directory holding the charts for the run a report describes.
 
-    A single shared directory means every run overwrites the previous run's
-    figures. Because a report links its charts relatively, the old report does
-    not lose them -- it silently renders the newest run's figures under its own
-    numbers, which is worse than losing them.
+    A run gets its own directory, so its renderings sit beside it and the
+    summary and detailed reports share one set of figures rather than drawing
+    identical copies. Keyed on the run rather than on a filename because a
+    single shared charts directory would let each run overwrite the last one's
+    figures -- and since a report links them relatively, the old report would
+    not lose its charts, it would silently show the newest run's under its own
+    numbers.
     """
-    return report_path.parent / "charts" / report_path.stem
+    return report_path.parent / "charts"
 
 
 @dataclass
@@ -147,6 +150,27 @@ class ReportContext:
     metrics: dict
     charts: dict[str, Path]
 
+    def model_for(self, condition: str) -> str:
+        """The model that answered under this condition, or ``""``.
+
+        A condition is named after the backend role that answers it, so the
+        role is the longest role name it starts with -- longest because
+        ``open_weights`` would otherwise be shadowed by a shorter name. The
+        model itself comes from the run's own provenance rather than from the
+        live config, so a report regenerated months later still names what
+        actually ran.
+
+        Deliberately not the condition registry: that is a runtime-only field
+        and is absent from a loaded run, which is exactly when a report is
+        being regenerated.
+        """
+        models = {m.role: m.model for m in getattr(self.run.provenance, "models", []) or []}
+        roles = sorted(models, key=len, reverse=True)
+        for role in roles:
+            if condition == role or condition.startswith(f"{role}_"):
+                return models[role]
+        return ""
+
     def rel(self, path: Path) -> str:
         """Chart paths in the report are relative to the report itself."""
         return path.relative_to(self.report_path.parent).as_posix()
@@ -166,12 +190,12 @@ def _section_configuration(ctx: ReportContext) -> list[str]:
     # by context. Saying so, and giving the row count beside it, is the whole
     # difference between "20 items" meaning 20 stories and 460 questions.
     unit = "item" if config.dataset.sample_by == "item" else config.dataset.sample_by
-    rows = len(ctx.run.results)
-    return [
+    scored = len(ctx.run.results)
+    lines = [
         "## Configuration",
         "",
         f"- Dataset: {config.dataset.name} (adapter {config.dataset.adapter})",
-        f"- Sampled: {config.num_items} {unit}(s), {rows} scored question(s)",
+        f"- Sampled: {config.num_items} {unit}(s), {scored} scored question(s)",
         f"- Reflexion depth: {config.reflexion_depth}",
         f"- Seed: {config.seed}",
         f"- Stub mode: {config.use_stub}",
@@ -179,6 +203,26 @@ def _section_configuration(ctx: ReportContext) -> list[str]:
         f"- Finished: {ctx.run.finished_at}",
         "",
     ]
+
+    # Which model answered which condition, stated once here rather than
+    # repeated on every row of every table below. Without it two runs of the
+    # same grid on different providers produce identical-looking reports.
+    answered_by = [
+        (name, ctx.model_for(name)) for name in _ordered_conditions(ctx.metrics, ctx.order)
+    ]
+    if any(model for _, model in answered_by):
+        lines.extend(["| Condition | Answered by |", "|---|---|"])
+        lines.extend(f"| {name} | {model or 'unknown'} |" for name, model in answered_by)
+        lines.append("")
+        judges = {
+            m.role: m.model
+            for m in getattr(ctx.run.provenance, "models", []) or []
+            if m.role in ("judge", "meta_judge")
+        }
+        if judges:
+            named = ", ".join(f"{role} `{model}`" for role, model in sorted(judges.items()))
+            lines.extend([f"Scored by {named}.", ""])
+    return lines
 
 
 def _section_aggregate_scores(ctx: ReportContext) -> list[str]:

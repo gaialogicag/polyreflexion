@@ -64,12 +64,20 @@ def _resolve_run_path(value: str, results_dir: Path, dataset: str) -> Path:
         if not path.is_file():
             raise SystemExit(f"Run file not found: {path}")
         return path
-    candidates = sorted(results_dir.glob(f"{dataset}_*.json"))
-    # Exclude derived report files that share the prefix.
-    candidates = [p for p in candidates if "_report_" not in p.name and "_detailed_" not in p.name]
+    from polyrx.benchmark.runner import raw_dir
+
+    home = raw_dir(results_dir, dataset)
+    candidates = sorted(home.glob(f"{dataset}_*.json"))
+    if not candidates:
+        # Runs saved before results were filed per dataset sat flat in
+        # `results/`, so a run from then is still resolvable.
+        candidates = sorted(results_dir.glob(f"{dataset}_*.json"))
+        candidates = [
+            p for p in candidates if "_report_" not in p.name and "_detailed_" not in p.name
+        ]
     if not candidates:
         raise SystemExit(
-            f"No previous {dataset} run found in {results_dir}. "
+            f"No previous {dataset} run found in {home}. "
             f"Run once without merge_from/extend_from first."
         )
     return candidates[-1]
@@ -247,9 +255,7 @@ def _run_suite(cfg: RootConfig) -> int:
     print(f"Saved results: {json_path}")
     print(f"Saved report:  {report_path}")
     if exp.detailed:
-        detailed = results_dir / report_path.name.replace(
-            f"{dataset}_report_", f"{dataset}_detailed_"
-        )
+        detailed = report_path.with_name("detailed.md")
         write_detailed_report(run, detailed)
         print(f"Saved detailed: {detailed}")
     _print_warnings(run.provenance)

@@ -24,6 +24,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from polyrx.benchmark.runner import interactive_dir
 from polyrx.cli.compose import load_config
 from polyrx.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyrx.meta.datatypes import MetaConfig, MetaResult
@@ -87,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     max_cycles = args.max_cycles if args.max_cycles is not None else cfg.meta.max_cycles
     depth = args.depth if args.depth is not None else cfg.meta.engine_depth
     workers = args.workers if args.workers is not None else cfg.engine.max_workers
-    output = args.output or (cfg.paths.resolved("results_dir") / "meta")
+    output = args.output or interactive_dir(cfg.paths.resolved("results_dir"), "reflect")
 
     engine_client: LLMClient
     judge_client: LLMClient

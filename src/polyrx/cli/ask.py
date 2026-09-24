@@ -31,6 +31,7 @@ import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 
+from polyrx.benchmark.runner import interactive_dir
 from polyrx.cli.compose import load_config
 from polyrx.engine import PromptRegistry, ReflexionEngine, StubLLMClient
 from polyrx.meta.datatypes import MetaConfig, MetaResult
@@ -133,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     max_cycles = args.max_cycles if args.max_cycles is not None else cfg.meta.max_cycles
     workers = args.workers if args.workers is not None else cfg.engine.max_workers
     depth = args.depth if args.depth is not None else cfg.meta.engine_depth
-    output = args.output or (cfg.paths.resolved("results_dir") / "meta")
+    output = args.output or interactive_dir(cfg.paths.resolved("results_dir"), "ask")
 
     engine_client: LLMClient
     judge_client: LLMClient
@@ -173,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     print_comparison(result)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output / f"ask_{stamp}"
+    run_dir = output / stamp
     render_topology(result, run_dir)
     report_path = MetaTrace(run_dir).save(result)
     print(f"\nSaved full trace and report to {run_dir}/ ({report_path.name})")

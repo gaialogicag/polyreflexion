@@ -827,6 +827,27 @@ def _config_to_dict(config: BenchmarkConfig) -> dict:
     return data
 
 
+def raw_dir(results_dir: Path, dataset: str) -> Path:
+    """Where a dataset's run files live: ``results/raw/<dataset>``."""
+    return results_dir / "raw" / dataset
+
+
+def reports_dir(results_dir: Path, dataset: str) -> Path:
+    """Where a dataset's reports live: ``results/reports/<dataset>``."""
+    return results_dir / "reports" / dataset
+
+
+def interactive_dir(results_dir: Path, tool: str) -> Path:
+    """Where one interactive tool's traces live: ``results/interactive/<tool>``.
+
+    Indexed by tool rather than by dataset because these runs have no dataset:
+    ``polyrx-ask`` and ``polyrx-reflect`` answer a question typed on the command
+    line. Filing them under a dataset would assert a provenance they do not
+    have.
+    """
+    return results_dir / "interactive" / tool
+
+
 def unique_stamp(output_dir: Path, prefix: str) -> str:
     """A run identifier that no existing run in ``output_dir`` already uses.
 
@@ -844,19 +865,38 @@ def unique_stamp(output_dir: Path, prefix: str) -> str:
     raise RuntimeError(f"Could not find a free run name for {prefix}_{stamp} in {output_dir}")
 
 
-def save_run(run: BenchmarkRun, output_dir: Path) -> tuple[Path, Path]:
-    """Persist raw results, named after the dataset that produced them."""
+def save_run(run: BenchmarkRun, results_dir: Path) -> tuple[Path, Path]:
+    """Persist raw results, and say where the report belongs.
+
+    Both are filed under the dataset that produced them -- raw runs in
+    ``results/raw/<dataset>``, reports in ``results/reports/<dataset>`` -- so a
+    directory listing answers "what has this dataset been run with" rather than
+    mixing every dataset into one folder and leaving the name to do the work.
+    The file names keep the dataset prefix too: a run file is often copied or
+    attached on its own, and then the folder is not there to say what it is.
+    """
+    dataset = run.config.dataset.name
+    output_dir = raw_dir(results_dir, dataset)
     output_dir.mkdir(parents=True, exist_ok=True)
-    prefix = run.config.dataset.name
+    prefix = dataset
     stamp = unique_stamp(output_dir, prefix)
     json_path = output_dir / f"{prefix}_{stamp}.json"
     payload = {
         "config": _config_to_dict(run.config),
         "provenance": (run.provenance or Provenance.collect()).to_dict(),
+        "usage": run.usage,
         "started_at": run.started_at,
         "finished_at": run.finished_at,
         "summaries": run.summaries,
         "results": run.results,
     }
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return json_path, output_dir / f"{prefix}_report_{stamp}.md"
+    # One directory per run holds every rendering of it: the summary report,
+    # the detailed one, and the charts they share. Keying the charts to a run
+    # rather than to a report is what stops the two reports each drawing their
+    # own byte-identical copy.
+    run_home = reports_dir(results_dir, dataset) / stamp
+    run_home.mkdir(parents=True, exist_ok=True)
+    # The path carries the dataset and the run, so the file does not repeat
+    # them: every run directory holds the same two names.
+    return json_path, run_home / "report.md"

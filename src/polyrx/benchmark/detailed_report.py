@@ -270,10 +270,12 @@ def write_detailed_report(
     # Presentation settings travel on the run, so a report regenerated later
     # looks the same as the one the run produced.
     report = report or getattr(run.config, "report", None) or ReportConfig()
-    # Standard charts + summary table land alongside the detailed doc.
-    summary_path = report_path.with_name(
-        report_path.name.replace("{prefix}_detailed_", "{prefix}_report_")
-    )
+    # The summary report sits beside this one in the run's own directory, and
+    # draws the charts both of them link. (This used to replace a literal
+    # "{prefix}_detailed_" -- an f-string placeholder that was never formatted,
+    # so the replace never matched and the summary was written over the
+    # detailed path.)
+    summary_path = report_path.with_name("report.md")
     write_report(run, summary_path, report)
 
     metrics = compute_metrics(run.results)
