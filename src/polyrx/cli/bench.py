@@ -42,8 +42,9 @@ from polyrx.conditions import (
 from polyrx.conf_store import register
 from polyrx.config import HostedModelConfig, RootConfig
 from polyrx.models.registry import set_active_backends
-from polyrx.provenance import ModelInfo, Provenance
+from polyrx.provenance import ModelInfo, Provenance, UsageInfo
 from polyrx.resources import find_conf_dir
+from polyrx.usage import totals as usage_totals
 
 register()
 
@@ -224,10 +225,22 @@ def _run_suite(cfg: RootConfig) -> int:
     if exp.drop_conditions:
         run = drop_conditions(run, set(exp.drop_conditions))
 
+    # The provenance block has carried an empty UsageInfo since it was written;
+    # fill it from what the run actually recorded.
+    spent = usage_totals(run.usage)
     run.provenance = Provenance.collect(
         models=_model_info(cfg),
         prompts=cfg.prompts,
         config=cfg.provenance,
+        usage=UsageInfo(
+            prompt_tokens=spent.prompt_tokens,
+            completion_tokens=spent.completion_tokens,
+            api_calls=spent.calls,
+            cached_tokens=spent.cached_tokens,
+            reasoning_tokens=spent.reasoning_tokens,
+            estimated_cost=spent.cost,
+            currency=spent.currency,
+        ),
     )
     json_path, report_path = save_run(run, results_dir)
     write_report(run, report_path)

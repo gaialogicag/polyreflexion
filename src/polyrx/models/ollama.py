@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 
 from polyrx.config import AnswerExtractionConfig, DegeneracyConfig, OllamaConfig
+from polyrx.usage import record_call
 
 
 def extract_final_answer(raw: str, config: AnswerExtractionConfig | None = None) -> str:
@@ -172,7 +173,17 @@ class OllamaClient:
         for attempt in range(1, self.retries + 1):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read())["response"]
+                    data = json.loads(resp.read())
+                # Counted like any other backend. A locally served model is
+                # free, but the token counts still say what a method costs in
+                # work, which is what makes the arms comparable.
+                record_call(
+                    model=self.model,
+                    provider="ollama",
+                    prompt_tokens=data.get("prompt_eval_count", 0) or 0,
+                    completion_tokens=data.get("eval_count", 0) or 0,
+                )
+                return data["response"]
             except TimeoutError as exc:
                 last_error = exc
                 print(f"Ollama timeout (attempt {attempt}/{self.retries}), retrying...")

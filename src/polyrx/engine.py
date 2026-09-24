@@ -11,6 +11,7 @@ from enum import Enum
 from polyrx.config import EngineConfig, OllamaConfig, ReflexionPrompts
 from polyrx.models.base import CallableLLMClient, LLMClient
 from polyrx.models.ollama import OllamaClient
+from polyrx.usage import submit_in_context
 
 
 class Perspective(Enum):
@@ -297,13 +298,13 @@ class ReflexionEngine:
     def _parallel_llm(self, prompts: list[str]) -> list[str]:
         if not self._parallel or self._llm_pool is None:
             return [self._llm.complete(p) for p in prompts]
-        futures = [self._llm_pool.submit(self._llm.complete, p) for p in prompts]
+        futures = [submit_in_context(self._llm_pool, self._llm.complete, p) for p in prompts]
         return [f.result() for f in futures]
 
     def _parallel_tree(self, tasks: list[Callable[[], Node]]) -> tuple[Node, ...]:
         if not self._parallel or self._tree_pool is None:
             return tuple(task() for task in tasks)
-        futures = [self._tree_pool.submit(task) for task in tasks]
+        futures = [submit_in_context(self._tree_pool, task) for task in tasks]
         return tuple(f.result() for f in futures)
 
     def _enriched_input(self, text: str, region: Region) -> str:

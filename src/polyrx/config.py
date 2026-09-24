@@ -466,6 +466,7 @@ class PostProcessConfig:
 DEFAULT_REPORT_SECTIONS = [
     "configuration",
     "aggregate_scores",
+    "cost",
     "charts",
     "per_item",
     "notes",

@@ -6,6 +6,7 @@ from typing import Any
 
 from polyrx.config import GeminiConfig
 from polyrx.env import load_env
+from polyrx.usage import record_call
 
 _INSTALL_HINT = (
     "The Gemini backend needs the google-genai SDK, which is an optional "
@@ -72,6 +73,18 @@ class GeminiClient:
             model=self.model,
             contents=prompt,
             config=self._request_config,
+        )
+        # Thinking tokens are billed as output, so they belong in the tally even
+        # though they never reach `.text`.
+        meta = getattr(response, "usage_metadata", None)
+        thoughts = getattr(meta, "thoughts_token_count", 0) or 0
+        record_call(
+            model=self.model,
+            provider="gemini",
+            prompt_tokens=getattr(meta, "prompt_token_count", 0) or 0,
+            completion_tokens=(getattr(meta, "candidates_token_count", 0) or 0) + thoughts,
+            cached_tokens=getattr(meta, "cached_content_token_count", 0) or 0,
+            reasoning_tokens=thoughts,
         )
         # `.text` is None when the model returned no text part at all — a safety
         # block, or a thinking budget that consumed the whole output allowance.

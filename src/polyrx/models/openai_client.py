@@ -9,6 +9,7 @@ from openai import OpenAI
 
 from polyrx.config import OpenAIConfig
 from polyrx.env import load_env
+from polyrx.usage import record_call
 
 
 class OpenAIClient:
@@ -44,6 +45,20 @@ class OpenAIClient:
                 {"role": "user", "content": prompt},
             ],
             temperature=self.temperature,
+        )
+        # The provider already counted the tokens; throwing the count away is
+        # what makes a run's cost unknowable afterwards.
+        usage = getattr(response, "usage", None)
+        prompt_details = getattr(usage, "prompt_tokens_details", None)
+        completion_details = getattr(usage, "completion_tokens_details", None)
+        record_call(
+            model=self.model,
+            provider="openai",
+            prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+            completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            # Both are parts of the totals above, not additions to them.
+            cached_tokens=getattr(prompt_details, "cached_tokens", 0) or 0,
+            reasoning_tokens=getattr(completion_details, "reasoning_tokens", 0) or 0,
         )
         return response.choices[0].message.content or ""
 

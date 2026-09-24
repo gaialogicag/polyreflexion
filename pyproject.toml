@@ -48,11 +48,15 @@ gpqa = ["pyarrow>=14"]
 # Gemini backends. Not needed for an OpenAI-only or fully local run, so the
 # default install does not pull the Google SDK.
 gemini = ["google-genai>=1.0,<3"]
+# Maintained per-model prices, so the cost table does not depend on a hand-kept
+# rate that goes stale silently. Optional: without it a run still counts every
+# token and prices only what `conf/backends/` states.
+cost = ["genai-prices>=0.1.8"]
 dev = [
     "ruff>=0.6",
     "mypy>=1.11",
 ]
-all = ["polyreflexion[viz,gpqa,gemini]"]
+all = ["polyreflexion[viz,gpqa,gemini,cost]"]
 
 [project.urls]
 Homepage = "https://github.com/gaialogicag/polyreflexion"

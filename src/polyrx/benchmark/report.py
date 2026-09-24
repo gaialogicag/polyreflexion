@@ -251,6 +251,110 @@ def _section_per_item(ctx: ReportContext) -> list[str]:
     return lines
 
 
+def _section_cost(ctx: ReportContext) -> list[str]:
+    """What each condition spent, beside what it scored.
+
+    An accuracy gain is only worth something against what it cost to get. The
+    tokens are what the run actually consumed; the money is those tokens priced
+    by the table in the backends config, which is why a model with no price
+    configured is named rather than counted as free.
+    """
+    usage = ctx.run.usage or {}
+    if not usage:
+        return [
+            "## Cost",
+            "",
+            "No usage recorded. Runs from before cost tracking, and stub runs, have none.",
+            "",
+        ]
+
+    # `genai-prices` quotes in US dollars.
+    currency = "USD"
+    metrics = ctx.metrics
+    lines = [
+        "## Cost",
+        "",
+        f"| Condition | Calls | Prompt | of which cached | Completion | of which thinking | "
+        f"Cost ({currency}) | Per correct answer |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+
+    def row(name: str, entry: dict) -> str:
+        cost = entry.get("cost")
+        correct = metrics[name].correct if name in metrics else 0
+        if cost is None:
+            money, per = "not priced", "-"
+        else:
+            money = f"{cost:.4f}"
+            per = f"{cost / correct:.4f}" if correct else "-"
+        return (
+            f"| {name} | {entry.get('calls', 0)} | {entry.get('prompt_tokens', 0):,} | "
+            f"{entry.get('cached_tokens', 0):,} | {entry.get('completion_tokens', 0):,} | "
+            f"{entry.get('reasoning_tokens', 0):,} | {money} | {per} |"
+        )
+
+    # Conditions first, in grid order, then the shared summary work, which is
+    # keyed by cache key rather than by condition because one summary serves
+    # several conditions.
+    answered = [name for name in _ordered_conditions(metrics, ctx.order) if name in usage]
+    for name in answered:
+        lines.append(row(name, usage[name]))
+    for name in sorted(k for k in usage if k not in answered):
+        lines.append(row(name, usage[name]))
+
+    unpriced = sorted({m for e in usage.values() for m in e.get("unpriced_models", [])})
+    lines.append("")
+    if unpriced:
+        lines.append(
+            f"No price known for {', '.join(unpriced)}, so any total above is partial. A model "
+            f"served locally has no price; a hosted one the table does not carry needs "
+            f'`pip install -e ".[cost]"` or a newer `genai-prices`.'
+        )
+        lines.append("")
+    sources = sorted({s for e in usage.values() for s in e.get("cost_sources", [])})
+    if sources:
+        named = {
+            "genai-prices": "the maintained `genai-prices` table, which applies a provider's "
+            "prompt-size tiers per call",
+        }
+        lines.append("Priced by " + "; ".join(named.get(s, s) for s in sources) + ".")
+        lines.append("")
+
+    biggest = max((e.get("max_prompt_tokens", 0) for e in usage.values()), default=0)
+    if biggest:
+        lines.append(
+            f"Largest single prompt: {biggest:,} tokens, which is what decides the price "
+            f"band a call falls in."
+        )
+        lines.append("")
+
+    cached = sum(e.get("cached_tokens", 0) for e in usage.values())
+    prompt = sum(e.get("prompt_tokens", 0) for e in usage.values())
+    if cached:
+        priced_cached = any(
+            len(p) > 2 and p[2] is not None
+            for p in getattr(ctx.run.config, "model_prices", {}).values()
+        )
+        note = (
+            "priced at the cached rate"
+            if priced_cached
+            else "priced at the full input rate, because no cached rate is configured, so "
+            "the cost above is an upper bound"
+        )
+        lines.append(
+            f"{cached:,} of {prompt:,} prompt tokens were served from the provider's cache "
+            f"({cached / prompt:.0%}), {note}."
+        )
+        lines.append("")
+    lines.append(
+        "Summary rows are shared work: one summary serves every condition with that cache "
+        "key, and a summary already cached cost this run nothing. Compare methods on a cold "
+        "cache, or the cheaper-looking one may simply have run second."
+    )
+    lines.append("")
+    return lines
+
+
 def _section_notes(ctx: ReportContext) -> list[str]:
     lines = ["## Notes", ""]
     # Which models answered is a fact about this run, so it is read off the
@@ -270,6 +374,7 @@ SECTION_BUILDERS: dict[str, Callable[[ReportContext], list[str]]] = {
     "aggregate_scores": _section_aggregate_scores,
     "charts": _section_charts,
     "per_item": _section_per_item,
+    "cost": _section_cost,
     "notes": _section_notes,
 }
 

@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from polyrx.meta.datatypes import BoundaryStatement, ContextJudgment, PolyEvaluation
 from polyrx.meta.prompts import MetaPromptRegistry
+from polyrx.usage import submit_in_context
 
 
 class BoundaryGenerator:
@@ -56,18 +57,20 @@ class BoundaryGenerator:
             with ThreadPoolExecutor(
                 max_workers=len(positive_judgments), thread_name_prefix="boundary"
             ) as pool:
-                statements = list(
-                    pool.map(
-                        lambda j: self._negate_one(
-                            j,
-                            answer,
-                            question=question,
-                            judge_feedback=judge_feedback,
-                            repair_priorities=repair_priorities,
-                        ),
-                        positive_judgments,
+                # `pool.map` gives the worker an empty context, so the call is
+                # submitted with the caller's copied in; without it these land
+                # outside the condition that caused them.
+                def negate(j: ContextJudgment) -> BoundaryStatement:
+                    return self._negate_one(
+                        j,
+                        answer,
+                        question=question,
+                        judge_feedback=judge_feedback,
+                        repair_priorities=repair_priorities,
                     )
-                )
+
+                futures = [submit_in_context(pool, negate, j) for j in positive_judgments]
+                statements = [f.result() for f in futures]
         else:
             statements = [
                 self._negate_one(

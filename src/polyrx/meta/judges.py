@@ -22,6 +22,7 @@ from polyrx.meta.datatypes import (
 )
 from polyrx.meta.prompts import MetaPromptRegistry
 from polyrx.models.openai_client import parse_json_response
+from polyrx.usage import submit_in_context
 
 # Accepted labels per pole and context (upper-cased before comparison).
 _POSITIVE_VALUES: dict[Dimension, set[str]] = {
@@ -60,7 +61,8 @@ class PolyJudge:
         if self._parallel:
             with ThreadPoolExecutor(max_workers=3, thread_name_prefix="judge") as pool:
                 futures = {
-                    dim: pool.submit(self._judge_one, dim, observation) for dim in DIMENSION_ORDER
+                    dim: submit_in_context(pool, self._judge_one, dim, observation)
+                    for dim in DIMENSION_ORDER
                 }
                 judgments = {dim: future.result() for dim, future in futures.items()}
         else:

@@ -130,7 +130,13 @@ class UsageInfo:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     api_calls: int = 0
-    estimated_usd: float | None = None
+    #: Both are parts of the totals above, not additions to them.
+    cached_tokens: int = 0
+    reasoning_tokens: int = 0
+    #: ``None`` when no price was configured for the models used, which is not
+    #: the same as zero.
+    estimated_cost: float | None = None
+    currency: str = "USD"
     wall_clock_s: float | None = None
 
 
@@ -159,6 +165,7 @@ class Provenance:
         models: list[ModelInfo] | None = None,
         datasets: list[DatasetInfo] | None = None,
         prompts: object | None = None,
+        usage: UsageInfo | None = None,
         config: ProvenanceConfig | None = None,
     ) -> Provenance:
         """Gather everything available in this process.
@@ -180,6 +187,7 @@ class Provenance:
             models=models or [],
             datasets=datasets or [],
             prompts=_hash_templates(prompts) if prompts is not None else {},
+            usage=usage or UsageInfo(),
         )
 
     def to_dict(self) -> dict:

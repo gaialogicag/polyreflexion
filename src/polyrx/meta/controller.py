@@ -35,6 +35,7 @@ from polyrx.meta.geometry import GeometryMapper
 from polyrx.meta.interpretation import Interpreter
 from polyrx.meta.judges import PolyJudge
 from polyrx.meta.prompts import MetaPromptRegistry
+from polyrx.usage import submit_in_context
 
 
 class ReasoningPrimitive(Protocol):
@@ -395,7 +396,7 @@ class MetaController:
         if len(inputs) == 1:
             return [self._run_one(inputs[0], depth)]
         with ThreadPoolExecutor(max_workers=len(inputs), thread_name_prefix="meta-engine") as pool:
-            futures = [pool.submit(self._run_one, text, depth) for text in inputs]
+            futures = [submit_in_context(pool, self._run_one, text, depth) for text in inputs]
             return [future.result() for future in futures]
 
     def _run_one(self, text: str, depth: int) -> tuple[str, ReflexionResult]:

@@ -10,6 +10,7 @@ defaults:
 sections:
   - configuration
   - aggregate_scores
+  - cost
   - charts
   - per_item
   - notes

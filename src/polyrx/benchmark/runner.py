@@ -38,6 +38,7 @@ from polyrx.models.base import LLMClient
 from polyrx.models.ollama import extract_final_answer, looks_degenerate
 from polyrx.models.registry import get_client
 from polyrx.provenance import Provenance
+from polyrx.usage import UsageRecorder, attributed_to, build_pricer, set_active_recorder
 
 #: One of the config dataclasses a run file carries.
 _ConfigT = TypeVar("_ConfigT")
@@ -120,6 +121,10 @@ class BenchmarkRun:
     #: Code version, model identifiers, dataset revisions, prompt hashes.
     #: Collected at save time when a runner did not supply one.
     provenance: Provenance | None = None
+    #: Condition (or summary key) -> tokens, calls and cost. Summary work is
+    #: keyed separately from answering because one summary serves several
+    #: conditions, and because a cached one costs nothing the second time.
+    usage: dict[str, dict] = field(default_factory=dict)
 
 
 def _client(alias: str, use_stub: bool) -> LLMClient:
@@ -258,63 +263,67 @@ def _build_summaries(
                 summaries[item_id][summary_key] = cache_path.read_text(encoding="utf-8")
                 continue
             print(f"  [{summary_key}] story {i}/{len(items)}: {item_id}")
-            if is_meta:
-                seed_summary = None
-                prior_key = prior_key_by_summary.get(summary_key)
-                if prior_key is not None:
-                    prior_path = _summary_cache_path(
-                        prior_key,
-                        item_id,
-                        depth,
-                        namespace=config.cache_namespace,
-                        paths=config.paths,
-                    )
-                    if prior_path.exists():
-                        seed_summary = prior_path.read_text(encoding="utf-8")
-                        print(
-                            f"  [{summary_key}] story {i}/{len(items)}: continuing from {prior_key}"
+            # A summary is built once and reused by every condition sharing
+            # this key, so its cost belongs to the key, not to whichever
+            # condition happened to ask first.
+            with attributed_to(summary_key):
+                if is_meta:
+                    seed_summary = None
+                    prior_key = prior_key_by_summary.get(summary_key)
+                    if prior_key is not None:
+                        prior_path = _summary_cache_path(
+                            prior_key,
+                            item_id,
+                            depth,
+                            namespace=config.cache_namespace,
+                            paths=config.paths,
                         )
-                # `is_meta` is exactly `meta_cycles is not None`; restate it so
-                # the type checker can see the budget is a real number here.
-                assert meta_cycles is not None
-                summary, meta_result = _run_meta_summary(
-                    client,
-                    prompts,
-                    context,
-                    depth=depth,
-                    max_workers=config.max_workers,
-                    use_stub=config.use_stub,
-                    max_cycles=meta_cycles,
-                    meta_prompts=MetaPromptRegistry(config.prompts.meta),
-                    seed_summary=seed_summary,
-                )
-                save_meta_trace(meta_result, meta_trace_path(cache_path))
-            else:
-                summary = _run_reflexion_summary(
-                    client,
-                    prompts,
-                    context,
-                    depth=depth,
-                    max_workers=config.max_workers,
-                )
-                # One retry with a stricter reminder if the model collapses into token salad.
-                if looks_degenerate(summary, config.postprocess.degeneracy):
-                    print(
-                        f"  [{summary_key}] story {i}/{len(items)}: degenerate summary, retrying..."
+                        if prior_path.exists():
+                            seed_summary = prior_path.read_text(encoding="utf-8")
+                            print(
+                                f"  [{summary_key}] story {i}/{len(items)}: continuing from {prior_key}"
+                            )
+                    # `is_meta` is exactly `meta_cycles is not None`; restate it so
+                    # the type checker can see the budget is a real number here.
+                    assert meta_cycles is not None
+                    summary, meta_result = _run_meta_summary(
+                        client,
+                        prompts,
+                        context,
+                        depth=depth,
+                        max_workers=config.max_workers,
+                        use_stub=config.use_stub,
+                        max_cycles=meta_cycles,
+                        meta_prompts=MetaPromptRegistry(config.prompts.meta),
+                        seed_summary=seed_summary,
                     )
-                    stricter = (
-                        context + "\n\nReminder: write plain English about the story only. "
-                        "No math, codes, segment IDs, or puzzle formatting."
-                    )
+                    save_meta_trace(meta_result, meta_trace_path(cache_path))
+                else:
                     summary = _run_reflexion_summary(
                         client,
                         prompts,
-                        stricter,
+                        context,
                         depth=depth,
                         max_workers=config.max_workers,
                     )
-            summaries[item_id][summary_key] = summary
-            cache_path.write_text(summary, encoding="utf-8")
+                    # One retry with a stricter reminder if the model collapses into token salad.
+                    if looks_degenerate(summary, config.postprocess.degeneracy):
+                        print(
+                            f"  [{summary_key}] story {i}/{len(items)}: degenerate summary, retrying..."
+                        )
+                        stricter = (
+                            context + "\n\nReminder: write plain English about the story only. "
+                            "No math, codes, segment IDs, or puzzle formatting."
+                        )
+                        summary = _run_reflexion_summary(
+                            client,
+                            prompts,
+                            stricter,
+                            depth=depth,
+                            max_workers=config.max_workers,
+                        )
+                summaries[item_id][summary_key] = summary
+                cache_path.write_text(summary, encoding="utf-8")
     return dict(summaries)
 
 
@@ -515,6 +524,10 @@ def load_dataset_items(config: BenchmarkConfig) -> tuple[list[Item], DatasetAdap
 def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     """Execute a benchmark run for whatever dataset is configured."""
     started = datetime.now(UTC).isoformat()
+    # One recorder per run, installed before any client is built so that
+    # nothing the run does goes uncounted. Each call is priced as it is made,
+    # because a price band depends on that call's own prompt size.
+    recorder = set_active_recorder(UsageRecorder(build_pricer()))
     prompts = PromptRegistry(config.prompts.reflexion)
     items, adapter = load_dataset_items(config)
     contexts: dict[str, str] = {item.item_id: item.context for item in items}
@@ -538,8 +551,11 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             context = summaries[item.item_id][resolve(condition, config).summary_key]
         else:
             context = item.context
-        prediction = _answer_question(client, prompts, context=context, item=item)
-        verdict = judge.evaluate(prediction=prediction, item=item)
+        # Set inside the worker: a thread starts with an empty context, so
+        # attributing around the pool would record nothing.
+        with attributed_to(condition):
+            prediction = _answer_question(client, prompts, context=context, item=item)
+            verdict = judge.evaluate(prediction=prediction, item=item)
         return (
             item.item_id,
             item.question,
@@ -588,6 +604,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
         summaries=summaries,
         started_at=started,
         finished_at=finished,
+        usage=recorder.snapshot(),
     )
 
 
@@ -659,6 +676,7 @@ def load_run(path: Path) -> BenchmarkRun:
         summaries=payload.get("summaries", {}),
         started_at=payload.get("started_at", ""),
         finished_at=payload.get("finished_at", ""),
+        usage=payload.get("usage", {}),
         # The report's notes name the models that answered, so a regenerated
         # report needs the run's own provenance rather than a fresh collection
         # describing whatever machine happens to be regenerating it.
@@ -697,6 +715,48 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             merged_summaries[item_id].update(backends)
 
     conditions = tuple(dict.fromkeys([*base.config.conditions, *extra.config.conditions]))
+    # Two runs spent two amounts; the merged run spent the sum. Extending adds
+    # the cost of the new items to the cost of the old ones.
+    merged_usage: dict[str, dict] = {}
+    for spent in (base.usage, extra.usage):
+        for usage_key, usage_entry in (spent or {}).items():
+            target = merged_usage.setdefault(
+                usage_key,
+                {
+                    "calls": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "cached_tokens": 0,
+                    "reasoning_tokens": 0,
+                    "max_prompt_tokens": 0,
+                    "cost": None,
+                    "cost_sources": [],
+                    "unpriced_models": [],
+                    "by_model": {},
+                },
+            )
+            for field_name in (
+                "calls",
+                "prompt_tokens",
+                "completion_tokens",
+                "cached_tokens",
+                "reasoning_tokens",
+            ):
+                target[field_name] += usage_entry.get(field_name, 0)
+            target["max_prompt_tokens"] = max(
+                target["max_prompt_tokens"], usage_entry.get("max_prompt_tokens", 0)
+            )
+            if usage_entry.get("cost") is not None:
+                target["cost"] = (target["cost"] or 0.0) + usage_entry["cost"]
+            for source in usage_entry.get("cost_sources", []):
+                if source not in target["cost_sources"]:
+                    target["cost_sources"].append(source)
+            for model in usage_entry.get("unpriced_models", []):
+                if model not in target["unpriced_models"]:
+                    target["unpriced_models"].append(model)
+            for model, row in usage_entry.get("by_model", {}).items():
+                target["by_model"].setdefault(model, row)
+
     merged_units = sampled_units(list(by_key.values()))
     return BenchmarkRun(
         config=BenchmarkConfig(
@@ -718,6 +778,7 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
         ),
         results=sorted(by_key.values(), key=lambda r: (r["item_id"], r["question"])),
         summaries=dict(merged_summaries),
+        usage=merged_usage,
         started_at=base.started_at or extra.started_at,
         finished_at=extra.finished_at or base.finished_at,
     )
