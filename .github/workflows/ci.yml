@@ -18,9 +18,27 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,viz,gpqa]"
-      - run: ruff check src
-      - run: ruff format --check src
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      # mypy is configured for the package only; the tests are annotated but
+      # not type-checked.
       - run: mypy
+
+  test:
+    # Unit tests: no network, no API key, no LLM. Fast enough to run on every
+    # supported interpreter.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev,viz,gpqa]"
+      - run: pytest
 
   smoke:
     # The whole pipeline on stub clients: no API key, no network, no cost.
@@ -92,19 +110,102 @@ jobs:
       - run: python -m build
       - name: Check metadata
         run: twine check dist/*
-      - name: Wheel must not carry configuration
+      - name: Wheel carries the code and an exact copy of the config tree
         run: |
           python - <<'PY'
-          import zipfile, glob, sys
+          import glob
+          import hashlib
+          import pathlib
+          import sys
+          import zipfile
+
           wheel = glob.glob("dist/*.whl")[0]
-          names = zipfile.ZipFile(wheel).namelist()
-          # The config tree and the prompt templates live at the repository
-          # root. A second copy inside the wheel would make it ambiguous which
-          # one a run actually used.
-          leaked = [n for n in names if "/conf/" in n or "/prompts/" in n]
-          if leaked:
-              sys.exit(f"configuration must not be packaged: {leaked[:5]}")
+          archive = zipfile.ZipFile(wheel)
+          names = archive.namelist()
+
           if not any(n.endswith("polyrx/engine.py") for n in names):
               sys.exit("wheel does not contain the package")
-          print(f"{wheel}: code packaged, configuration correctly absent")
+
+          # Without the config tree, an installed console script has no
+          # configuration to find: there is no checkout for it to search.
+          if "polyrx/conf/config.yaml" not in names:
+              sys.exit("wheel does not contain the config tree")
+
+          # The repository's conf/ is the source of truth and wins at runtime
+          # wherever a checkout exists. The packaged copy is a fallback, so the
+          # two must be byte-identical -- a drifting copy means a pip user runs
+          # against prompts that no longer exist here.
+          def digest(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          root = pathlib.Path("conf")
+          repo = {
+              str(p.relative_to(root)): digest(p.read_bytes())
+              for p in sorted(root.rglob("*"))
+              if p.is_file()
+          }
+          packaged = {
+              n[len("polyrx/conf/"):]: digest(archive.read(n))
+              for n in names
+              if n.startswith("polyrx/conf/") and not n.endswith("/")
+          }
+
+          missing = sorted(set(repo) - set(packaged))
+          extra = sorted(set(packaged) - set(repo))
+          changed = sorted(k for k in set(repo) & set(packaged) if repo[k] != packaged[k])
+          if missing or extra or changed:
+              sys.exit(
+                  f"packaged config tree differs from conf/: "
+                  f"missing={missing[:5]} extra={extra[:5]} changed={changed[:5]}"
+              )
+
+          print(f"{wheel}: package present, {len(repo)} config files match conf/ exactly")
           PY
+
+  wheel-install:
+    # The test the package exists for: a wheel installed from an index, run
+    # from a directory with no checkout in it or in any parent. Every console
+    # script resolved its configuration through the repository root until the
+    # tree was packaged, so nothing else here would catch that regression.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build --wheel
+      - name: Install the wheel into a clean environment
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+      - name: A benchmark runs with no checkout anywhere above it
+        run: |
+          mkdir -p /tmp/elsewhere
+          cd /tmp/elsewhere
+          /tmp/venv/bin/polyrx-bench experiment=smoke
+      - name: polyrx-init writes an editable tree that then takes precedence
+        run: |
+          cd /tmp/elsewhere
+          /tmp/venv/bin/polyrx-init
+          test -f conf/config.yaml
+          /tmp/venv/bin/python -c "
+          from pathlib import Path
+          from polyrx.resources import find_conf_dir
+          resolved = find_conf_dir()
+          expected = Path('/tmp/elsewhere/conf')
+          assert resolved == expected, f'{resolved} != {expected}'
+          print('written tree wins over the packaged copy')
+          "
+      - name: An edit to the written tree reaches the run
+        run: |
+          cd /tmp/elsewhere
+          sed -i 's/^name: .*/name: edited_by_ci/' conf/dataset/opentom.yaml
+          /tmp/venv/bin/polyrx-bench experiment=smoke --cfg job | grep -q "edited_by_ci"
+      - name: polyrx-init refuses to overwrite it
+        run: |
+          cd /tmp/elsewhere
+          if /tmp/venv/bin/polyrx-init; then
+            echo "polyrx-init overwrote an existing tree without --force"
+            exit 1
+          fi

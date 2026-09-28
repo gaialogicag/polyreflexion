@@ -51,12 +51,14 @@ class ClientRegistry:
             raise ValueError(f"Unknown model role: {role!r}. Use one of: {known}.")
         if isinstance(config, OllamaConfig):
             client: LLMClient = OllamaClient(config, extraction=self.postprocess.extraction)
-        # Gemini before OpenAI: both derive from HostedModelConfig, and a bare
-        # ModelConfig means no provider was selected for this role.
         elif isinstance(config, GeminiConfig):
             client = GeminiClient(config)
         elif isinstance(config, OpenAIConfig):
             client = OpenAIClient(config)
+        # Last of the isinstance chain, because every provider config above
+        # subclasses ModelConfig: tested any earlier, this branch swallows a
+        # fully configured role and rejects it as unconfigured. The provider
+        # branches are siblings, so their order among themselves is free.
         elif isinstance(config, ModelConfig):
             raise TypeError(
                 f"Role {role!r} has no provider selected. A backends config must name one "

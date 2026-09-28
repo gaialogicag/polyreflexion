@@ -56,6 +56,8 @@ cost = ["genai-prices>=0.1.8"]
 dev = [
     "ruff>=0.6",
     "mypy>=1.11",
+    "pytest>=8",
+    "pytest-cov>=5",
 ]
 all = ["polyreflexion[viz,gpqa,gemini,cost]"]
 
@@ -79,18 +81,26 @@ polyrx-conditions = "polyrx.cli.conditions:main"
 polyrx-doctor = "polyrx.cli.doctor:main"
 # Write judge traces beside summaries cached before traces were recorded.
 polyrx-backfill = "polyrx.cli.backfill:main"
+# Write the packaged config tree out where it can be edited.
+polyrx-init = "polyrx.cli.init:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/polyrx"]
 
-# Neither the config tree nor the prompt templates ship in the wheel: both are
-# configuration, and both live at the repository root where they can be read
-# and edited. The package is therefore checkout-only by design.
+# The config tree, which includes every prompt template, is copied into the
+# wheel. Without it a pip install produces console scripts that cannot run:
+# they resolve their configuration by searching for a checkout, and an
+# installed user has none. The repository's own conf/ still wins wherever one
+# exists, so this copy is a fallback, not a second source of truth.
+# polyrx-init writes it out again where it can be edited.
+[tool.hatch.build.targets.wheel.force-include]
+"conf" = "polyrx/conf"
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/polyrx",
     "conf",
+    "tests",
     "README.md",
     "LICENSE",
     "CITATION.cff",
@@ -103,7 +113,7 @@ include = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src"]
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -125,6 +135,15 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["polyrx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Import mode "importlib" keeps the tests directory off sys.path, so a test
+# module never shadows a package module of the same name.
+addopts = "-q --strict-markers --import-mode=importlib"
+markers = [
+    "needs_gemini: requires the optional google-genai SDK",
+]
 
 [tool.mypy]
 # No python_version pin: mypy then targets the interpreter it runs on. Pinning

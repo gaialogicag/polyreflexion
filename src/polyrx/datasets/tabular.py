@@ -214,7 +214,6 @@ class TabularAdapter(DatasetAdapter):
             return prediction.strip()
 
         by_norm = {_norm(a): a for a in allowed}
-        longest_first = sorted(allowed, key=len, reverse=True)
         cleaned = re.sub(r"^\s*Answer:\s*", "", prediction.strip(), flags=re.IGNORECASE)
 
         lines = [ln.strip().strip('"').strip("'") for ln in cleaned.splitlines() if ln.strip()]
@@ -225,10 +224,20 @@ class TabularAdapter(DatasetAdapter):
         if all(len(a) == 1 for a in allowed):
             return self._match_letter(cleaned, lines, allowed)
 
+        # Ranked by where the match *ends*, then by length. Ranking by where it
+        # starts loses a label to its own suffix: "full" starts later than
+        # "more full" inside "more full" and would win, although both name the
+        # same span of text. Ending position keeps the rule that the last label
+        # mentioned wins, and the length breaks the tie in favour of the whole
+        # label rather than its tail.
         lowered = cleaned.casefold()
-        best, best_pos = None, -1
-        for label in longest_first:
-            pos = lowered.rfind(_norm(label))
-            if pos > best_pos:
-                best, best_pos = label, pos
+        best, best_rank = None, (-1, -1)
+        for label in allowed:
+            normalized = _norm(label)
+            pos = lowered.rfind(normalized)
+            if pos < 0:
+                continue
+            rank = (pos + len(normalized), len(normalized))
+            if rank > best_rank:
+                best, best_rank = label, rank
         return best if best is not None else cleaned

@@ -31,7 +31,20 @@ cycle 1 onward `(A,W,W)` terminates normally.
 
 ## Install
 
-Python 3.11 or newer. With conda:
+Python 3.11 or newer.
+
+```bash
+pip install polyreflexion            # or: pip install "polyreflexion[all]"
+```
+
+The wheel carries a copy of the config tree, so the commands work straight
+away. To read and edit it, write it into the working directory:
+
+```bash
+polyrx-init                          # writes ./conf, which then takes precedence
+```
+
+To work on the code instead, install from a checkout. With conda:
 
 ```bash
 conda env create -f environment.yml
@@ -44,6 +57,9 @@ Or with a plain virtual environment:
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,viz,gpqa]"
 ```
+
+A checkout's own `conf/` always wins over the packaged copy, so editing a
+prompt there changes what the next run reads.
 
 Then set up credentials and check what is missing:
 
@@ -78,9 +94,13 @@ Everything is configured through [Hydra](https://hydra.cc). The config tree is
 because a prompt is the thing a researcher changes most and burying it in the
 package made it the hardest thing to change.
 
-Commands are run from a checkout. The `conf/` directory is located by searching
-upward from the working directory, so running from a subdirectory works too.
-Point `POLYRX_CONF` at a tree somewhere else to override the search.
+The `conf/` directory is resolved in three steps, in this order:
+
+1. `POLYRX_CONF`, if it is set, which overrides everything.
+2. A `conf/` found by searching upward from the working directory. This is the
+   checkout, and running from a subdirectory works because of the search.
+3. The copy inside the installed package, for an install with no checkout.
+   `polyrx-init` writes it out where it can be edited.
 
 ```bash
 # Offline smoke test: no API key, no network, deterministic stub responses.
@@ -410,7 +430,7 @@ the old prompt.
 
 | Path | Role |
 |---|---|
-| `conf/` | Hydra config tree, including all prompt templates (not packaged) |
+| `conf/` | Hydra config tree, including all prompt templates. Copied into the wheel as a fallback; this copy is what a run reads |
 | `polyrx/engine.py` | `ReflexionEngine` — the recursive tree and its parallel pools |
 | `polyrx/conditions.py` | The experiment grid as data |
 | `polyrx/config.py` | Every configurable knob, as typed dataclasses |

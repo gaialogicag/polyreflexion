@@ -24,6 +24,7 @@ from polyrx.cli.compose import load_config
 from polyrx.conditions import LOCK_FILENAME, check_against_lock, registry_from_config
 from polyrx.config import RootConfig
 from polyrx.env import load_env
+from polyrx.resources import install_extra_hint
 
 OK, WARN, FAIL = "ok", "warn", "fail"
 
@@ -65,7 +66,7 @@ def _python_and_package() -> list[Check]:
                     module,
                     WARN,
                     f"missing — {what} will be skipped",
-                    f'pip install -e ".[{extra}]"',
+                    install_extra_hint(extra),
                 )
             )
     return checks
@@ -179,7 +180,7 @@ def _probe_model(role: str, backend) -> Check:
         elif "rate" in lowered or "429" in text:
             hint = "Rate limited. The model exists; try again shortly."
         elif "google" in lowered and "genai" in lowered:
-            hint = 'The Gemini backend needs: pip install -e ".[gemini]"'
+            hint = f"The Gemini backend needs: {install_extra_hint('gemini')}"
         return Check(f"{role} model", FAIL, f"{backend.model}: {text[:160]}", hint)
 
 

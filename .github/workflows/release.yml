@@ -1,0 +1,128 @@
+name: Release
+
+# Publishing is driven by a tag, so what went to the index is always a commit
+# someone tagged deliberately, not whatever was on main when a button was
+# pressed. Run it against TestPyPI first: PyPI is append-only and a version
+# number, once uploaded, can never be reused even after the file is deleted.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Index to publish to
+        required: true
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+
+      - name: The tag must match the version being published
+        # Without this, tagging v0.2.0 on a tree that still says 0.1.0
+        # publishes 0.1.0 under a v0.2.0 tag, and neither number can be
+        # reused afterwards.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              version = tomllib.load(handle)["project"]["version"]
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          if tag != version:
+              sys.exit(f"tag v{tag} does not match project.version {version}")
+          print(f"tag and version agree: {version}")
+          PY
+
+      - run: python -m build
+      - name: Check metadata
+        run: twine check dist/*
+
+      - name: The wheel must be usable without a checkout
+        # The same check the CI workflow runs. Repeated here because this is
+        # the artifact that actually goes to the index: a release must not be
+        # able to skip it.
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+          mkdir -p /tmp/elsewhere
+          cd /tmp/elsewhere
+          /tmp/venv/bin/polyrx-bench experiment=smoke
+          /tmp/venv/bin/polyrx-init
+          test -f conf/config.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  testpypi:
+    # Every release goes here first. Installing from TestPyPI is the only way
+    # to find out what the published package actually does, as opposed to what
+    # the local wheel does.
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      # Trusted Publishing: the job proves its identity to the index with a
+      # short-lived OIDC token, so there is no API token to store or rotate.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify:
+    # Installs what was actually published, from the index, into a clean
+    # environment. Everything before this tested a local file.
+    needs: pypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install from PyPI and run a benchmark
+        run: |
+          for attempt in 1 2 3 4 5; do
+            pip install "polyreflexion==${GITHUB_REF_NAME#v}" && break
+            echo "not on the index yet, waiting"
+            sleep 30
+          done
+          mkdir -p /tmp/fresh
+          cd /tmp/fresh
+          polyrx-bench experiment=smoke
+          polyrx-init
+          test -f conf/config.yaml

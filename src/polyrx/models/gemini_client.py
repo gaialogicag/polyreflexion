@@ -8,10 +8,14 @@ from polyrx.config import GeminiConfig
 from polyrx.env import load_env
 from polyrx.usage import record_call
 
-_INSTALL_HINT = (
-    "The Gemini backend needs the google-genai SDK, which is an optional "
-    'dependency. Install it with: pip install -e ".[gemini]"'
-)
+
+def _install_hint() -> str:
+    from polyrx.resources import install_extra_hint
+
+    return (
+        "The Gemini backend needs the google-genai SDK, which is an optional "
+        f"dependency. Install it with: {install_extra_hint('gemini')}"
+    )
 
 
 class GeminiClient:
@@ -44,7 +48,7 @@ class GeminiClient:
             from google import genai
             from google.genai import types
         except ImportError as exc:  # pragma: no cover - depends on the install
-            raise ImportError(_INSTALL_HINT) from exc
+            raise ImportError(_install_hint()) from exc
 
         kwargs: dict[str, Any] = {"api_key": api_key or self.config.api_key()}
         if self.config.base_url:
