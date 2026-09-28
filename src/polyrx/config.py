@@ -48,7 +48,17 @@ class HostedModelConfig(ModelConfig):
     system_prompt: str = "You are an expert in modeling others' mental states."
 
     def api_key(self) -> str:
-        """Read the key from the environment, with an actionable error."""
+        """Read the key from the environment, with an actionable error.
+
+        Loads ``.env`` first, because the error message promises it works --
+        and because every caller that is not a model client (the doctor, the
+        backfill entry point) would otherwise reject a setup that a real run
+        accepts. Imported inside the call rather than at module scope: this
+        module is imported everywhere, and importing it must not read a file.
+        """
+        from polyrx.env import load_env
+
+        load_env()
         key = os.environ.get(self.api_key_env, "")
         if not key:
             raise ValueError(

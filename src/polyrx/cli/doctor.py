@@ -23,6 +23,7 @@ from polyrx import __version__
 from polyrx.cli.compose import load_config
 from polyrx.conditions import LOCK_FILENAME, check_against_lock, registry_from_config
 from polyrx.config import RootConfig
+from polyrx.env import load_env
 
 OK, WARN, FAIL = "ok", "warn", "fail"
 
@@ -381,6 +382,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("overrides", nargs="*", help="Hydra overrides, e.g. dataset=gpqa")
     args = parser.parse_args(argv)
+
+    # Before any check reads os.environ. A key in .env is a configured key, and
+    # reporting it missing sends the user to fix something that is not broken.
+    load_env()
 
     try:
         cfg = load_config(args.overrides)
