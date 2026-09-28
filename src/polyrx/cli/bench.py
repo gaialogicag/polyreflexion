@@ -41,6 +41,7 @@ from polyrx.conditions import (
 )
 from polyrx.conf_store import register
 from polyrx.config import HostedModelConfig, RootConfig
+from polyrx.env import load_env
 from polyrx.models.registry import set_active_backends
 from polyrx.provenance import ModelInfo, Provenance, UsageInfo
 from polyrx.resources import find_conf_dir
@@ -291,6 +292,7 @@ def main() -> int:
     lives at the repository root instead, so it is added to the search path
     here, once, as an absolute location.
     """
+    load_env()
     try:
         conf_dir = find_conf_dir()
     except FileNotFoundError as exc:
