@@ -1,0 +1,139 @@
+# ExploreToM: judges score mental-state tracking in the summary.
+#
+# Differs from the OpenToM set in what it tells the judges to look for. These
+# stories are generated to break belief tracking specifically: actions are
+# witnessed in secret, characters get distracted and miss what happened, and
+# information is passed privately to one person and not another. Second-order
+# beliefs -- what A thinks B believes -- carry most of the questions, so the
+# judges are told to score those rather than the events.
+
+defaults:
+  - base_meta_prompts
+
+judge_subjective: |-
+  You are a polycontextural judge for the SUBJECTIVE context (Theory-of-Mind story summary).
+
+  Original narrative:
+  {question}
+
+  Integrated story summary under evaluation:
+  {answer}
+
+  Perspective artifacts from reflexion (O = objective facts, S = subjective experience, B = conceptual structure):
+  {corners}
+
+  Is the summary authentic and internally coherent as a mental-state narrative? Judge coherence of what each character believes, what each character believes about the others' beliefs, and what each character was in a position to learn. Do not judge whether every inference is objectively true.
+
+  Name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "A" or "F", "rationale": "one short paragraph"}}
+judge_objective: |-
+  You are a polycontextural judge for the OBJECTIVE context (Theory-of-Mind story summary).
+
+  Original narrative:
+  {question}
+
+  Integrated story summary under evaluation:
+  {answer}
+
+  Is the summary objectively faithful to the narrative? Check: character names, which room each character was in and when, which container each object was moved into, who was present for each move, who witnessed a move in secret, who was distracted and missed it, and who was told something privately rather than out loud. Penalize invented facts, and penalize any place where the summary states as fact something only one character believes.
+
+  Name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "W" or "F", "rationale": "one short paragraph"}}
+judge_dialectical: |-
+  You are a polycontextural judge for the DIALECTICAL context (Theory-of-Mind story summary).
+
+  Original narrative:
+  {question}
+
+  Integrated story summary under evaluation:
+  {answer}
+
+  Previous cycle's summary (may be '(none)' on the first cycle):
+  {previous_answer}
+
+  Does this summary add useful Theory-of-Mind detail that was not already explicit in the previous summary -- a character's belief that differs from reality, a belief one character holds about another's belief, or a moment where someone missed an event? Or is it merely a paraphrase with no new mental-state information?
+
+  Name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "W" or "R", "rationale": "one short paragraph"}}
+boundary_negation: |-
+  You are refining a Theory-of-Mind story summary along the {dimension} axis.
+
+  Original narrative:
+  {question}
+
+  Current integrated summary:
+  {answer}
+
+  Judge feedback:
+  {judge_feedback}
+
+  Positive verdict ({dimension}, {verdict_label}):
+  {rationale}
+
+  Gaps to address (from failing judges):
+  {repair_priorities}
+
+  Write a semantic boundary (2-4 sentences) describing what this summary still omits or blurs in the {dimension} context -- especially who saw a move and who did not, what a character still believes that is no longer true, and what one character believes another believes. Describe the boundary, not a full rewrite. Preserve all character names, room names and container names from the narrative.
+expand_input: |-
+  Original narrative:
+  {question}
+
+  Current integrated story summary:
+  {answer}
+
+  Judge feedback (address every NOT satisfied item without dropping correct facts):
+  {judge_feedback}
+
+  Expansion axis: {dimension}
+
+  Semantic boundary:
+  {boundary}
+
+  Task: Write a NEW integrated story summary (plain English, one concise paragraph) that:
+  - Keeps every correct fact from the current summary and narrative: character names, room names, container names, and the order the moves happened in.
+  - Adds the mental-state detail implied by the boundary and missing judge concerns.
+  - Says, for each move, who was present, who watched in secret, and who missed it.
+  - States clearly when a character's belief differs from reality, and when a character is wrong about what someone else believes.
+  - Does NOT answer benchmark questions -- only summarize the story for Theory-of-Mind.
+  - Avoids filler ("best friends", "good intentions") unless stated in the narrative.
+refine_input: |-
+  Original narrative:
+  {question}
+
+  Current integrated story summary:
+  {answer}
+
+  Judge feedback:
+  {judge_feedback}
+
+  Strength to preserve (apex {apex}):
+  {apex_guidance}
+
+  [Region]
+  Apex: {apex}
+  Left boundary ({left_label}): {left_boundary}
+  Right boundary ({right_label}): {right_boundary}
+
+  Task: Write a refined integrated story summary inside this region. Fix the failing judge concerns using the two boundaries as constraints. Preserve the room names, the container names, the order of the moves, who witnessed what, and every belief that differs from reality. One concise paragraph; no benchmark Q&A.
+contradiction_check: |-
+  Boundary A:
+  {first}
+
+  Boundary B:
+  {second}
+
+  Are these two boundary descriptions mutually contradictory for the same story summary? Reply with exactly one word: yes or no.
+drift_check: |-
+  Original narrative:
+  {question}
+
+  Integrated story summary:
+  {answer}
+
+  Does this summary still describe the same story events, characters, rooms and containers as the original narrative (not a different story or topic)? Reply with exactly one word: yes or no.

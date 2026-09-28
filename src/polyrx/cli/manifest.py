@@ -40,7 +40,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _datasets(names: list[str] | None, overrides: list[str]) -> list:
-    names = names or ["opentom", "gpqa"]
+    names = names or ["exploretom", "opentom", "gpqa"]
     return [load_config([f"dataset={name}", *overrides]).dataset for name in names]
 
 

@@ -252,6 +252,12 @@ class DatasetConfig:
     #: scoring against it would publish a number that measures nothing.
     #: ``0.0`` fails on the first one; ``1.0`` only warns.
     max_unanswerable_fraction: float = 0.01
+    #: Smallest number of allowed answers an item may have and still be kept.
+    #: An item whose label space holds one answer states that answer in the
+    #: prompt, so every model scores it correctly and it moves the reported
+    #: accuracy without measuring anything. ``0`` keeps every item, which is
+    #: right for a dataset whose label space is the same for all of them.
+    min_label_space: int = 0
     #: Characters of the content hash that form an item's id. This is a data
     #: format, not a tuning knob: changing it renames every item, which
     #: invalidates every cached summary and makes saved runs unmergeable.

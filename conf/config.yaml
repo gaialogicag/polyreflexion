@@ -11,7 +11,7 @@ defaults:
   # at the line that eventually reads it.
   - base_config
   - backends: openai
-  - dataset: opentom
+  - dataset: exploretom
   - conditions: published
   - engine: default
   - prompts/reflexion: default
@@ -24,7 +24,7 @@ defaults:
   - _self_
   # Last on purpose: an experiment is a global patch, so it has to be composed
   # after the groups it overrides.
-  - experiment: opentom
+  - experiment: exploretom
 
 hydra:
   job:

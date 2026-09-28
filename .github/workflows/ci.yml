@@ -65,7 +65,7 @@ jobs:
         run: polyrx-conditions check
       - name: Prompt sets are selectable and overridable
         run: |
-          polyrx-bench -m experiment=smoke prompts/meta=default,opentom,gpqa
+          polyrx-bench -m experiment=smoke prompts/meta=default,opentom,exploretom,gpqa
           polyrx-bench experiment=smoke \
             'prompts.meta.drift_check="CUSTOM {answer}"' --cfg job
 

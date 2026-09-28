@@ -1,0 +1,16 @@
+defaults:
+  - base_meta
+
+# ExploreToM story summaries: judges score mental-state tracking. Same knobs as
+# the OpenToM profile -- the task is the same shape -- but the stories nest
+# beliefs two deep and hide actions from some characters, so the judges are
+# pointed at who witnessed what.
+profile: exploretom
+max_cycles: 2
+engine_depth: 1
+reset_depth_bonus: 1
+# Cycle 0 only: read a fully positive verdict as "expand once" rather than
+# "converged", so the loop does not stop before it has done anything.
+reinterpret_full_positive_on_cycle0: true
+drift_check_enabled: true
+max_consecutive_drifts: 2

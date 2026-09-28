@@ -1,0 +1,35 @@
+# @package _global_
+# ExploreToM theory-of-mind suite.
+#
+# The stories are generated to be hard for the model they were searched
+# against, so accuracy here sits well below OpenToM's. Differences between
+# conditions are still small relative to the sample size: run enough stories
+# that the gap you care about is larger than the noise before reading anything
+# into it.
+
+defaults:
+  - override /dataset: exploretom
+  - override /meta: exploretom
+  - override /engine: default
+  - override /prompts/reflexion: default
+  - override /prompts/meta: exploretom
+
+experiment:
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_reflexion_d3
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+    - answerer_meta_c4
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

@@ -25,6 +25,14 @@
       "repo_type": "dataset",
       "size_bytes": 127958
     },
+    "dataset:facebook/ExploreToM/ExploreToM-data-sample.csv": {
+      "repo_id": "facebook/ExploreToM",
+      "filename": "ExploreToM-data-sample.csv",
+      "revision": "a4ac6f257e0034945f829716047ae6306dc625a0",
+      "sha256": "f8462b1a2199819a2baef5ab321b7b9240249fe229b94c86d8d06c2c47fc448b",
+      "repo_type": "dataset",
+      "size_bytes": 31848634
+    },
     "dataset:nichenshun/gpqa_diamond/data/train-00000-of-00001.parquet": {
       "repo_id": "nichenshun/gpqa_diamond",
       "filename": "data/train-00000-of-00001.parquet",

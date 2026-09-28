@@ -1,0 +1,48 @@
+# ExploreToM: program-generated theory-of-mind stories.
+#
+# Has its own adapter because the source states no allowed answers: a location
+# question is scored against the rooms or containers that story mentions, and
+# those are read out of the templated `story_structure` column. Many questions
+# share each story, so items are sampled by context.
+#
+# What the model reads is `fields.context`. `infilled_story` is the prose form
+# and is the task as published; `story_structure` is the terse template the
+# prose was written from. The allowed answers come from `story_structure`
+# either way.
+
+defaults:
+  - base_dataset
+
+name: exploretom
+adapter: exploretom
+group_name: question type
+sample_by: context
+
+fields:
+  context: infilled_story
+  question: question
+  answer: expected_answer
+
+# 2660 of the sample's 13309 questions (20.0%) have exactly one allowed answer,
+# almost all of them room questions in a one-room story. The label space is
+# rendered into the answering prompt, so those questions hand the model the
+# answer. Set this to 0 to score them anyway.
+min_label_space: 2
+
+primary:
+  # The Hub ships one file: a sample generated adversarially against
+  # Llama-3.1-70B-Instruct. Facebook's dataset card asks that it not be used as
+  # the canonical ExploreToM test set -- the framework is meant to be re-run
+  # against the model under test. Read published numbers from it accordingly.
+  #
+  # A Hub commit sha, not a branch: `main` would make the run unreproducible,
+  # and the runner says so. `polyrx-manifest pin` resolves the current commit
+  # and records its checksum in data/MANIFEST.json.
+  repo_id: facebook/ExploreToM
+  filename: ExploreToM-data-sample.csv
+  revision: a4ac6f257e0034945f829716047ae6306dc625a0
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

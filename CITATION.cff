@@ -5,7 +5,7 @@ abstract: >-
   A recursive text-reflexion engine over a Sierpinski triangle of three
   perspectives, steered by a polycontextural meta layer that judges each cycle
   from subjective, objective and dialectical contexts and selects the next
-  recursion move. Ships the OpenToM and GPQA Diamond evaluation suites used to
+  recursion move. Ships the ExploreToM, OpenToM and GPQA Diamond evaluation suites used to
   measure it.
 type: software
 license: MIT

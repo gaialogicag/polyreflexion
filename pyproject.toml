@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 # Distribution name. The import name is `polyrx`, matching the console scripts.
 name = "polyreflexion"
 version = "0.1.0"
-description = "Recursive Sierpinski reflexion with a polycontextural meta layer, and the OpenToM / GPQA benchmarks that measure it"
+description = "Recursive Sierpinski reflexion with a polycontextural meta layer, and the ExploreToM / OpenToM / GPQA benchmarks that measure it"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -21,6 +21,7 @@ keywords = [
     "benchmark",
     "gpqa",
     "opentom",
+    "exploretom",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
