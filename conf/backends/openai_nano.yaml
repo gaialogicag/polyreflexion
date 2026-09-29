@@ -1,0 +1,37 @@
+# Every hosted role served by OpenAI's cheapest *non-reasoning* models, to
+# contain cost on large ExploreToM runs without paying for reasoning tokens
+# a reflexion/meta-judge pipeline already does not need: gpt-5-nano is a
+# reasoning model and burned the large majority of its billed output as
+# reasoning tokens rather than the answer, which made it cost far more in
+# practice than its sticker price suggested.
+#
+# `judge` and `meta_judge` are still different model families from each
+# other, matching openai.yaml's own reasoning: the meta layer's evaluation
+# must stay independent of benchmark scoring.
+#
+# As in `openai.yaml`, each block sets only what differs from the provider's
+# own defaults.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - /backends/role@open_weights: ollama
+  - _self_
+
+answerer:
+  model: gpt-4.1-nano
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  # Deliberately a different model family from `judge` so meta evaluation
+  # stays independent of benchmark scoring.
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.
+
+open_weights:
+  model: phi4-mini-reasoning

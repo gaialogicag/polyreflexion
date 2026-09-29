@@ -1,26 +1,3 @@
-"""What each condition spent, in tokens and in money.
-
-An accuracy number on its own does not say whether a method is worth using.
-Reflexion asks the model several times per question and the meta layer asks
-several more, so the interesting comparison is the gain against the bill.
-
-Tokens and money are kept apart on purpose. **Tokens** are a durable fact about
-a run: they do not change when a provider reprices. **Money** is those tokens
-put through a price table that is maintained elsewhere, changes without notice,
-and does not exist at all for a model served locally.
-
-**Each call is priced as it happens, not the total afterwards.** Providers
-charge a higher rate above a prompt-size threshold -- Gemini doubles above
-200k tokens -- so pricing a condition's summed tokens would apply a tier that no
-single request ever reached. Only the individual call knows its own size.
-
-Attribution asks "which condition caused this call?" at the moment the call is
-made. The runner sets that on the thread doing the work and the clients read it
-when they record. Anything called outside a condition -- the doctor's probe, an
-interactive tool -- lands under ``UNATTRIBUTED`` rather than being silently
-added to a method's cost.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -224,6 +201,7 @@ class UsageRecorder:
         #: loses at most the one call in flight when it happened, never the
         #: spend already made.
         self._checkpoint_path = checkpoint_path
+        self._checkpoint_lock = threading.Lock()
         if checkpoint_path is not None:
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -272,15 +250,16 @@ class UsageRecorder:
     def _write_checkpoint(self) -> None:
         """Dump the running tally to disk, replacing the previous checkpoint atomically."""
         assert self._checkpoint_path is not None
-        by_condition = self.snapshot()
-        payload = {
-            "updated_at": datetime.now(UTC).isoformat(),
-            "totals": asdict(totals(by_condition)),
-            "by_condition": by_condition,
-        }
-        tmp = self._checkpoint_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        tmp.replace(self._checkpoint_path)
+        with self._checkpoint_lock:
+            by_condition = self.snapshot()
+            payload = {
+                "updated_at": datetime.now(UTC).isoformat(),
+                "totals": asdict(totals(by_condition)),
+                "by_condition": by_condition,
+            }
+            tmp = self._checkpoint_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(self._checkpoint_path)
 
     def snapshot(self) -> dict[str, dict]:
         """The tally as ``condition -> {...}``, ready to save.

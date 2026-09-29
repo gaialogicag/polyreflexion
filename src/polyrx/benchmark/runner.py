@@ -539,16 +539,36 @@ def load_dataset_items(config: BenchmarkConfig) -> tuple[list[Item], DatasetAdap
     return items, adapter
 
 
+def _usage_checkpoint_path(config: BenchmarkConfig) -> Path:
+    try:
+        from hydra.core.hydra_config import HydraConfig
+
+        run_dir = Path(HydraConfig.get().runtime.output_dir)
+    except ValueError:
+        # Not running under a Hydra job (e.g. run_benchmark called directly).
+        run_dir = (
+            config.paths.resolved("cache_dir") / "usage" / (config.cache_namespace or "default")
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_dir / f"usage_{unique_stamp(run_dir, 'usage')}.json"
+    return run_dir / "usage.json"
+
+
 def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     """Execute a benchmark run for whatever dataset is configured."""
     started = datetime.now(UTC).isoformat()
     # One recorder per run, installed before any client is built so that
     # nothing the run does goes uncounted. Each call is priced as it is made,
     # because a price band depends on that call's own prompt size.
-    usage_checkpoint = (
-        config.paths.resolved("cache_dir") / "usage" / f"{config.cache_namespace or 'default'}.json"
+    #
+    # One checkpoint file per invocation, filed inside Hydra's own run
+    # directory for this job rather than a namespace-keyed tree next to it:
+    # two runs sharing a cache_namespace (a rerun, a sweep) would otherwise
+    # overwrite each other's spend record the way a namespace's summary cache
+    # is deliberately shared.
+    recorder = set_active_recorder(
+        UsageRecorder(build_pricer(), checkpoint_path=_usage_checkpoint_path(config))
     )
-    recorder = set_active_recorder(UsageRecorder(build_pricer(), checkpoint_path=usage_checkpoint))
     prompts = PromptRegistry(config.prompts.reflexion)
     items, adapter = load_dataset_items(config)
     contexts: dict[str, str] = {item.item_id: item.context for item in items}
