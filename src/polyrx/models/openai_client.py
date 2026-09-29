@@ -32,7 +32,10 @@ class OpenAIClient:
         self.model = self.config.model
         self.system_prompt = self.config.system_prompt
         self.temperature = self.config.temperature
-        kwargs: dict = {"api_key": api_key or self.config.api_key()}
+        kwargs: dict = {
+            "api_key": api_key or self.config.api_key(),
+            "max_retries": self.config.max_retries,
+        }
         if self.config.base_url:
             kwargs["base_url"] = self.config.base_url
         self._client = OpenAI(**kwargs)

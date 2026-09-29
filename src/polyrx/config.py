@@ -46,6 +46,7 @@ class HostedModelConfig(ModelConfig):
     base_url: str | None = None
     temperature: float = 0.0
     system_prompt: str = "You are an expert in modeling others' mental states."
+    max_retries: int = 5
 
     def api_key(self) -> str:
         """Read the key from the environment, with an actionable error.

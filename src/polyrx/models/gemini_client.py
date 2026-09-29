@@ -51,8 +51,12 @@ class GeminiClient:
             raise ImportError(_install_hint()) from exc
 
         kwargs: dict[str, Any] = {"api_key": api_key or self.config.api_key()}
+        http_options_kwargs: dict[str, Any] = {
+            "retry_options": types.HttpRetryOptions(attempts=self.config.max_retries + 1)
+        }
         if self.config.base_url:
-            kwargs["http_options"] = types.HttpOptions(base_url=self.config.base_url)
+            http_options_kwargs["base_url"] = self.config.base_url
+        kwargs["http_options"] = types.HttpOptions(**http_options_kwargs)
         self._client = genai.Client(**kwargs)
         self._request_config = self._build_request_config()
 
