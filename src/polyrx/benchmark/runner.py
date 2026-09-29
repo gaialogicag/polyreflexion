@@ -38,7 +38,14 @@ from polyrx.models.base import LLMClient
 from polyrx.models.ollama import extract_final_answer, looks_degenerate
 from polyrx.models.registry import get_client
 from polyrx.provenance import Provenance
-from polyrx.usage import UsageRecorder, attributed_to, build_pricer, set_active_recorder
+from polyrx.usage import (
+    UsageRecorder,
+    active_recorder,
+    attributed_to,
+    build_pricer,
+    set_active_recorder,
+)
+from polyrx.usage import totals as usage_totals
 
 #: One of the config dataclasses a run file carries.
 _ConfigT = TypeVar("_ConfigT")
@@ -219,6 +226,16 @@ def _summary_cache_path(
     return cache_dir / f"{item_id}.txt"
 
 
+def _print_running_total() -> None:
+    """Print the run's live token/cost tally so far."""
+    spent = usage_totals(active_recorder().snapshot())
+    cost = f"${spent.cost:.4f}" if spent.cost is not None else "unpriced"
+    print(
+        f"    running total: {spent.calls} calls, "
+        f"{spent.prompt_tokens + spent.completion_tokens} tokens, {cost}"
+    )
+
+
 def _build_summaries(
     items: dict[str, str],
     config: BenchmarkConfig,
@@ -324,6 +341,7 @@ def _build_summaries(
                         )
                 summaries[item_id][summary_key] = summary
                 cache_path.write_text(summary, encoding="utf-8")
+            _print_running_total()
     return dict(summaries)
 
 
@@ -527,7 +545,10 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     # One recorder per run, installed before any client is built so that
     # nothing the run does goes uncounted. Each call is priced as it is made,
     # because a price band depends on that call's own prompt size.
-    recorder = set_active_recorder(UsageRecorder(build_pricer()))
+    usage_checkpoint = (
+        config.paths.resolved("cache_dir") / "usage" / f"{config.cache_namespace or 'default'}.json"
+    )
+    recorder = set_active_recorder(UsageRecorder(build_pricer(), checkpoint_path=usage_checkpoint))
     prompts = PromptRegistry(config.prompts.reflexion)
     items, adapter = load_dataset_items(config)
     contexts: dict[str, str] = {item.item_id: item.context for item in items}
@@ -596,6 +617,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
             done += 1
             if done % config.report.progress_every == 0 or done == len(tasks):
                 print(f"  answered {done}/{len(tasks)}")
+                _print_running_total()
 
     finished = datetime.now(UTC).isoformat()
     return BenchmarkRun(

@@ -24,11 +24,14 @@ added to a method's cost.
 from __future__ import annotations
 
 import contextvars
+import json
 import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import Executor, Future
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol, TypeVar
 
 __all__ = [
@@ -213,10 +216,16 @@ class UsageRecorder:
     trip, so the lock is never the bottleneck.
     """
 
-    def __init__(self, pricer: Pricer | None = None) -> None:
+    def __init__(self, pricer: Pricer | None = None, checkpoint_path: Path | None = None) -> None:
         self._lock = threading.Lock()
         self._rows: dict[tuple[str, str], ConditionUsage] = {}
         self._pricer = pricer
+        #: Where the running tally is dumped after every call, so a crash
+        #: loses at most the one call in flight when it happened, never the
+        #: spend already made.
+        self._checkpoint_path = checkpoint_path
+        if checkpoint_path is not None:
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
     def record(
         self,
@@ -256,6 +265,22 @@ class UsageRecorder:
             if cost is not None:
                 row.cost = (row.cost or 0.0) + cost.amount
                 row.cost_source = cost.source
+
+        if self._checkpoint_path is not None:
+            self._write_checkpoint()
+
+    def _write_checkpoint(self) -> None:
+        """Dump the running tally to disk, replacing the previous checkpoint atomically."""
+        assert self._checkpoint_path is not None
+        by_condition = self.snapshot()
+        payload = {
+            "updated_at": datetime.now(UTC).isoformat(),
+            "totals": asdict(totals(by_condition)),
+            "by_condition": by_condition,
+        }
+        tmp = self._checkpoint_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(self._checkpoint_path)
 
     def snapshot(self) -> dict[str, dict]:
         """The tally as ``condition -> {...}``, ready to save.
