@@ -190,7 +190,9 @@ def _run_suite(cfg: RootConfig) -> int:
         merge_runs,
         run_benchmark,
         save_run,
+        usage_checkpoint_path,
     )
+    from polyrx.usage import discard_checkpoint
 
     exp = cfg.experiment
     dataset = cfg.dataset.name
@@ -252,6 +254,10 @@ def _run_suite(cfg: RootConfig) -> int:
         ),
     )
     json_path, report_path = save_run(run, results_dir)
+    # Now that the run's own spend is durably saved in json_path, its live
+    # checkpoint is redundant -- and if left behind, indistinguishable from a
+    # crashed run's checkpoint to a later invocation's recovery pass.
+    discard_checkpoint(usage_checkpoint_path(config))
     write_report(run, report_path)
     print(f"Saved results: {json_path}")
     print(f"Saved report:  {report_path}")

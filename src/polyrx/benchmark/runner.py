@@ -43,6 +43,7 @@ from polyrx.usage import (
     active_recorder,
     attributed_to,
     build_pricer,
+    recover_orphaned_usage,
     set_active_recorder,
 )
 from polyrx.usage import totals as usage_totals
@@ -539,7 +540,7 @@ def load_dataset_items(config: BenchmarkConfig) -> tuple[list[Item], DatasetAdap
     return items, adapter
 
 
-def _usage_checkpoint_path(config: BenchmarkConfig) -> Path:
+def usage_checkpoint_path(config: BenchmarkConfig) -> Path:
     try:
         from hydra.core.hydra_config import HydraConfig
 
@@ -566,8 +567,24 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     # two runs sharing a cache_namespace (a rerun, a sweep) would otherwise
     # overwrite each other's spend record the way a namespace's summary cache
     # is deliberately shared.
+    #
+    # A crashed attempt under the same namespace already spent real money
+    # building whatever this run now finds cached for free; fold that spend
+    # back in before the first call, or it disappears from the report.
+    hydra_root = config.paths.resolved("results_dir") / "hydra"
+    seed, recovered_from = recover_orphaned_usage(hydra_root, config.cache_namespace)
+    if recovered_from:
+        print(
+            f"Recovered spend from {len(recovered_from)} crashed run(s) under "
+            f"cache_namespace={config.cache_namespace!r}: {[str(p) for p in recovered_from]}"
+        )
     recorder = set_active_recorder(
-        UsageRecorder(build_pricer(), checkpoint_path=_usage_checkpoint_path(config))
+        UsageRecorder(
+            build_pricer(),
+            checkpoint_path=usage_checkpoint_path(config),
+            cache_namespace=config.cache_namespace,
+            seed=seed,
+        )
     )
     prompts = PromptRegistry(config.prompts.reflexion)
     items, adapter = load_dataset_items(config)
@@ -809,6 +826,11 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             paths=extra.config.paths,
             report=extra.config.report,
             postprocess=extra.config.postprocess,
+            # Not saved to disk (see `_RUNTIME_ONLY_FIELDS` below) so `base`
+            # never has one, but `extra` is the run that just executed and
+            # still holds the live registry -- write_detailed_report needs it
+            # in this in-memory merged run, not just in a reloaded one.
+            condition_registry=extra.config.condition_registry,
             num_items=merged_units,
             seed=base.config.seed,
             reflexion_depth=max(base.config.reflexion_depth, extra.config.reflexion_depth),
