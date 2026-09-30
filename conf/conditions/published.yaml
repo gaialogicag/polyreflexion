@@ -28,6 +28,15 @@ conditions:
   - name: answerer_reflexion_d3
     backend: answerer
     depth: 3
+  - name: answerer_reflexion_d5
+    backend: answerer
+    depth: 5
+  - name: answerer_reflexion_d6
+    backend: answerer
+    depth: 6
+  - name: answerer_reflexion_d7
+    backend: answerer
+    depth: 7
 
   - name: answerer_meta_c1
     backend: answerer
@@ -45,6 +54,30 @@ conditions:
     backend: answerer
     depth: 1
     meta_cycles: 4
+  - name: answerer_meta_c5
+    backend: answerer
+    depth: 1
+    meta_cycles: 5
+  - name: answerer_meta_c6
+    backend: answerer
+    depth: 1
+    meta_cycles: 6
+  - name: answerer_meta_c7
+    backend: answerer
+    depth: 1
+    meta_cycles: 7
+  - name: answerer_meta_c8
+    backend: answerer
+    depth: 1
+    meta_cycles: 8
+  - name: answerer_meta_c9
+    backend: answerer
+    depth: 1
+    meta_cycles: 9
+  - name: answerer_meta_c10
+    backend: answerer
+    depth: 1
+    meta_cycles: 10
 
   - name: answerer_meta
     backend: answerer

@@ -22,6 +22,13 @@
       "prior_summary_key": null,
       "summary_key": "answerer_meta_c1"
     },
+    "answerer_meta_c10": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 10,
+      "prior_summary_key": "answerer_meta_c9",
+      "summary_key": "answerer_meta_c10"
+    },
     "answerer_meta_c2": {
       "backend": "answerer",
       "depth": 1,
@@ -43,6 +50,41 @@
       "prior_summary_key": "answerer_meta_c3",
       "summary_key": "answerer_meta_c4"
     },
+    "answerer_meta_c5": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 5,
+      "prior_summary_key": "answerer_meta_c4",
+      "summary_key": "answerer_meta_c5"
+    },
+    "answerer_meta_c6": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 6,
+      "prior_summary_key": "answerer_meta_c5",
+      "summary_key": "answerer_meta_c6"
+    },
+    "answerer_meta_c7": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 7,
+      "prior_summary_key": "answerer_meta_c6",
+      "summary_key": "answerer_meta_c7"
+    },
+    "answerer_meta_c8": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 8,
+      "prior_summary_key": "answerer_meta_c7",
+      "summary_key": "answerer_meta_c8"
+    },
+    "answerer_meta_c9": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 9,
+      "prior_summary_key": "answerer_meta_c8",
+      "summary_key": "answerer_meta_c9"
+    },
     "answerer_reflexion": {
       "backend": "answerer",
       "depth": 1,
@@ -63,6 +105,27 @@
       "meta_cycles": 0,
       "prior_summary_key": null,
       "summary_key": "answerer_d3"
+    },
+    "answerer_reflexion_d5": {
+      "backend": "answerer",
+      "depth": 5,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "answerer_d5"
+    },
+    "answerer_reflexion_d6": {
+      "backend": "answerer",
+      "depth": 6,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "answerer_d6"
+    },
+    "answerer_reflexion_d7": {
+      "backend": "answerer",
+      "depth": 7,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "answerer_d7"
     },
     "open_weights_direct": {
       "backend": "open_weights",
