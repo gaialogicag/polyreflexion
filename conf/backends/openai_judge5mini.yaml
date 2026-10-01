@@ -1,0 +1,29 @@
+# Same answerer tier as `openai.yaml` / `openai_judge4o.yaml` (gpt-5.4-nano),
+# but judge=gpt-5-mini / meta_judge=gpt-4o -- matches the judge setup used in
+# the GToAGIPoC GPQA runs, to compare against the single-judge-family
+# openai_judge4o.yaml baseline.
+#
+# As in `openai.yaml`, each block sets only what differs from the provider's
+# own defaults.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - /backends/role@open_weights: ollama
+  - _self_
+
+answerer:
+  model: gpt-5.4-nano
+
+judge:
+  model: gpt-5-mini
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o
+  system_prompt: You are an impartial evaluator of reasoning quality.
+
+open_weights:
+  model: phi4-mini-reasoning
