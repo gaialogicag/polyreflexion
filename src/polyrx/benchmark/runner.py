@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
@@ -237,14 +238,112 @@ def _print_running_total() -> None:
     )
 
 
-def _build_summaries(
-    items: dict[str, str],
+def _write_accuracy_checkpoint(path: Path, tally: dict[str, dict[str, int]]) -> None:
+    """Dump each condition's running accuracy so far, atomically.
+
+    Grading isn't cached or resumed the way summaries are -- each run always
+    regrades everything itself -- so unlike the usage checkpoint this needs no
+    recovery story, just a live view of the same tally every process already
+    holds in memory.
+    """
+    payload = {
+        condition: {
+            "correct": row["correct"],
+            "total": row["total"],
+            "accuracy": row["correct"] / row["total"] if row["total"] else None,
+        }
+        for condition, row in tally.items()
+    }
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _run_conditions(
+    items: list[Item],
     config: BenchmarkConfig,
     prompts: PromptRegistry,
-) -> dict[str, dict[str, str]]:
-    """Run reflexion (or meta-reflexion) once per story for each summary key."""
+    clients: dict[str, LLMClient],
+    judge: Judge,
+    accuracy_path: Path,
+) -> tuple[dict[tuple[str, str], dict], dict[str, dict[str, str]]]:
+    """Build summaries and grade answers together, one item at a time.
+
+    Direct (no-summary) conditions have no per-item build dependency, so they
+    grade immediately and concurrently. A summary-based condition grades right
+    after its item's summary is built, rather than after every item across
+    every condition has one -- accuracy is visible from the first graded
+    question, not only once the whole run is nearly done.
+    """
+    results_by_key: dict[tuple[str, str], dict] = {}
+    summaries: dict[str, dict[str, str]] = defaultdict(dict)
+    accuracy_tally: dict[str, dict[str, int]] = {}
+    total_tasks = len(items) * len(config.conditions)
+    done = 0
+    # `grade` now runs inside worker threads for the direct-condition pool
+    # below (unlike the old code, where only `as_completed` -- the calling
+    # thread -- ever touched shared state), so every mutation of
+    # results_by_key/accuracy_tally/done and the checkpoint write itself needs
+    # to be serialized, not just the checkpoint's own tmp-file replace.
+    state_lock = threading.Lock()
+
+    def grade(item: Item, condition: str, context: str) -> None:
+        nonlocal done
+        backend = resolve(condition, config).backend
+        client = clients[backend]
+        with attributed_to(condition):
+            prediction = _answer_question(client, prompts, context=context, item=item)
+            verdict = judge.evaluate(prediction=prediction, item=item)
+        with state_lock:
+            key = (item.item_id, item.question)
+            row = results_by_key.setdefault(
+                key,
+                {
+                    "item_id": item.item_id,
+                    # The unit that was sampled. `item_id` identifies the
+                    # question, so without this a saved run cannot say how many
+                    # stories it drew -- which is what `num_items` means on a
+                    # dataset with `sample_by: context`.
+                    "context_id": sampling_group(item, config.dataset.sample_by),
+                    "question": item.question,
+                    "gold_label": item.gold_label,
+                    "group": item.group,
+                    "label_space": item.label_space,
+                    "predictions": {},
+                    "judgments": {},
+                },
+            )
+            row["predictions"][condition] = prediction
+            row["judgments"][condition] = verdict
+            cond_tally = accuracy_tally.setdefault(condition, {"correct": 0, "total": 0})
+            cond_tally["total"] += 1
+            if verdict.get("correct"):
+                cond_tally["correct"] += 1
+            # Written after every graded item, same as the usage checkpoint
+            # after every call -- not batched to progress_every, so a crash
+            # mid-grading loses at most the one item in flight.
+            _write_accuracy_checkpoint(accuracy_path, accuracy_tally)
+            done += 1
+            if done % config.report.progress_every == 0 or done == total_tasks:
+                print(f"  answered {done}/{total_tasks}")
+                _print_running_total()
+
+    direct_conditions = [c for c in config.conditions if not uses_summary_condition(c, config)]
+    if direct_conditions:
+        print(f"Grading {len(direct_conditions)} direct condition(s) for {len(items)} items...")
+        with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
+            futures = [
+                pool.submit(grade, item, condition, item.context)
+                for item in items
+                for condition in direct_conditions
+            ]
+            for future in as_completed(futures):
+                future.result()  # Surfaces a worker's exception instead of swallowing it.
+
     # summary_key -> (backend, depth, meta_cycles or None)
     jobs: dict[str, tuple[str, int, int | None]] = {}
+    # summary_key -> every condition sharing it (an alias means more than one).
+    conditions_by_key: dict[str, list[str]] = defaultdict(list)
     for condition in config.conditions:
         if not uses_summary_condition(condition, config):
             continue
@@ -252,6 +351,7 @@ def _build_summaries(
         depth = spec.depth or config.reflexion_depth
         meta_cycles = spec.meta_cycles if spec.is_meta else None
         jobs[spec.summary_key] = (spec.backend, depth, meta_cycles)
+        conditions_by_key[spec.summary_key].append(condition)
 
     # summary_key -> the next-smaller meta budget's key, when one is configured.
     prior_key_by_summary = {
@@ -260,90 +360,93 @@ def _build_summaries(
         if spec.prior_summary_key is not None
     }
 
-    summaries: dict[str, dict[str, str]] = defaultdict(dict)
     for summary_key, (backend, depth, meta_cycles) in sorted(
         jobs.items(), key=lambda kv: (kv[1][1], kv[0])
     ):
         is_meta = meta_cycles is not None
         budget_note = f", meta_cycles={meta_cycles}" if is_meta else ""
+        conditions_here = conditions_by_key[summary_key]
         print(
             f"Building {'meta-reflexion' if is_meta else 'reflexion'} summaries "
             f"key={summary_key} (backend={backend}, depth={depth}{budget_note}) "
-            f"for {len(items)} items..."
+            f"for {len(items)} items, grading {conditions_here} as each completes..."
         )
         client = _client(backend, config.use_stub)
-        for i, (item_id, context) in enumerate(items.items(), start=1):
+        for i, item in enumerate(items, start=1):
+            item_id, context = item.item_id, item.context
             cache_path = _summary_cache_path(
                 summary_key, item_id, depth, namespace=config.cache_namespace, paths=config.paths
             )
             if cache_path.exists():
                 print(f"  [{summary_key}] story {i}/{len(items)}: {item_id} (cached)")
-                summaries[item_id][summary_key] = cache_path.read_text(encoding="utf-8")
-                continue
-            print(f"  [{summary_key}] story {i}/{len(items)}: {item_id}")
-            # A summary is built once and reused by every condition sharing
-            # this key, so its cost belongs to the key, not to whichever
-            # condition happened to ask first.
-            with attributed_to(summary_key):
-                if is_meta:
-                    seed_summary = None
-                    prior_key = prior_key_by_summary.get(summary_key)
-                    if prior_key is not None:
-                        prior_path = _summary_cache_path(
-                            prior_key,
-                            item_id,
-                            depth,
-                            namespace=config.cache_namespace,
-                            paths=config.paths,
-                        )
-                        if prior_path.exists():
-                            seed_summary = prior_path.read_text(encoding="utf-8")
-                            print(
-                                f"  [{summary_key}] story {i}/{len(items)}: continuing from {prior_key}"
+                summary = cache_path.read_text(encoding="utf-8")
+            else:
+                print(f"  [{summary_key}] story {i}/{len(items)}: {item_id}")
+                with attributed_to(summary_key):
+                    if is_meta:
+                        seed_summary = None
+                        prior_key = prior_key_by_summary.get(summary_key)
+                        if prior_key is not None:
+                            prior_path = _summary_cache_path(
+                                prior_key,
+                                item_id,
+                                depth,
+                                namespace=config.cache_namespace,
+                                paths=config.paths,
                             )
-                    # `is_meta` is exactly `meta_cycles is not None`; restate it so
-                    # the type checker can see the budget is a real number here.
-                    assert meta_cycles is not None
-                    summary, meta_result = _run_meta_summary(
-                        client,
-                        prompts,
-                        context,
-                        depth=depth,
-                        max_workers=config.max_workers,
-                        use_stub=config.use_stub,
-                        max_cycles=meta_cycles,
-                        meta_prompts=MetaPromptRegistry(config.prompts.meta),
-                        seed_summary=seed_summary,
-                    )
-                    save_meta_trace(meta_result, meta_trace_path(cache_path))
-                else:
-                    summary = _run_reflexion_summary(
-                        client,
-                        prompts,
-                        context,
-                        depth=depth,
-                        max_workers=config.max_workers,
-                    )
-                    # One retry with a stricter reminder if the model collapses into token salad.
-                    if looks_degenerate(summary, config.postprocess.degeneracy):
-                        print(
-                            f"  [{summary_key}] story {i}/{len(items)}: degenerate summary, retrying..."
+                            if prior_path.exists():
+                                seed_summary = prior_path.read_text(encoding="utf-8")
+                                print(
+                                    f"  [{summary_key}] story {i}/{len(items)}: "
+                                    f"continuing from {prior_key}"
+                                )
+                        # `is_meta` is exactly `meta_cycles is not None`; restate it
+                        # so the type checker can see the budget is a real number here.
+                        assert meta_cycles is not None
+                        summary, meta_result = _run_meta_summary(
+                            client,
+                            prompts,
+                            context,
+                            depth=depth,
+                            max_workers=config.max_workers,
+                            use_stub=config.use_stub,
+                            max_cycles=meta_cycles,
+                            meta_prompts=MetaPromptRegistry(config.prompts.meta),
+                            seed_summary=seed_summary,
                         )
-                        stricter = (
-                            context + "\n\nReminder: write plain English about the story only. "
-                            "No math, codes, segment IDs, or puzzle formatting."
-                        )
+                        save_meta_trace(meta_result, meta_trace_path(cache_path))
+                    else:
                         summary = _run_reflexion_summary(
                             client,
                             prompts,
-                            stricter,
+                            context,
                             depth=depth,
                             max_workers=config.max_workers,
                         )
-                summaries[item_id][summary_key] = summary
-                cache_path.write_text(summary, encoding="utf-8")
-            _print_running_total()
-    return dict(summaries)
+                        # One retry with a stricter reminder if the model collapses into token salad.
+                        if looks_degenerate(summary, config.postprocess.degeneracy):
+                            print(
+                                f"  [{summary_key}] story {i}/{len(items)}: "
+                                f"degenerate summary, retrying..."
+                            )
+                            stricter = (
+                                context + "\n\nReminder: write plain English about the story only. "
+                                "No math, codes, segment IDs, or puzzle formatting."
+                            )
+                            summary = _run_reflexion_summary(
+                                client,
+                                prompts,
+                                stricter,
+                                depth=depth,
+                                max_workers=config.max_workers,
+                            )
+                    cache_path.write_text(summary, encoding="utf-8")
+                _print_running_total()
+            summaries[item_id][summary_key] = summary
+            for condition in conditions_here:
+                grade(item, condition, summary)
+
+    return results_by_key, dict(summaries)
 
 
 def _run_reflexion_summary(
@@ -588,73 +691,16 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkRun:
     )
     prompts = PromptRegistry(config.prompts.reflexion)
     items, adapter = load_dataset_items(config)
-    contexts: dict[str, str] = {item.item_id: item.context for item in items}
-
-    need_summaries = any(uses_summary_condition(c, config) for c in config.conditions)
-    summaries: dict[str, dict[str, str]] = {}
-    if need_summaries:
-        summaries = _build_summaries(contexts, config, prompts)
 
     needed_aliases = _backends_for_conditions(config.conditions, config) | {"judge"}
     clients = {alias: _client(alias, config.use_stub) for alias in sorted(needed_aliases)}
     judge = Judge(clients["judge"], prompts, adapter)
 
-    tasks = [(item, condition) for item in items for condition in config.conditions]
-    results_by_key: dict[tuple[str, str], dict] = {}
-
-    def process(item: Item, condition: str) -> tuple[str, str, dict]:
-        backend = resolve(condition, config).backend
-        client = clients[backend]
-        if uses_summary_condition(condition, config):
-            context = summaries[item.item_id][resolve(condition, config).summary_key]
-        else:
-            context = item.context
-        # Set inside the worker: a thread starts with an empty context, so
-        # attributing around the pool would record nothing.
-        with attributed_to(condition):
-            prediction = _answer_question(client, prompts, context=context, item=item)
-            verdict = judge.evaluate(prediction=prediction, item=item)
-        return (
-            item.item_id,
-            item.question,
-            {
-                "condition": condition,
-                "prediction": prediction,
-                "judgment": verdict,
-            },
-        )
-
-    print(f"Answering {len(tasks)} item×condition pairs...")
-    done = 0
-    with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
-        futures = {
-            pool.submit(process, item, condition): (item, condition) for item, condition in tasks
-        }
-        for future in as_completed(futures):
-            item, condition = futures[future]
-            item_id, question, payload = future.result()
-            key = (item_id, question)
-            if key not in results_by_key:
-                results_by_key[key] = {
-                    "item_id": item_id,
-                    # The unit that was sampled. `item_id` identifies the
-                    # question, so without this a saved run cannot say how many
-                    # stories it drew -- which is what `num_items` means on a
-                    # dataset with `sample_by: context`.
-                    "context_id": sampling_group(item, config.dataset.sample_by),
-                    "question": question,
-                    "gold_label": item.gold_label,
-                    "group": item.group,
-                    "label_space": item.label_space,
-                    "predictions": {},
-                    "judgments": {},
-                }
-            results_by_key[key]["predictions"][condition] = payload["prediction"]
-            results_by_key[key]["judgments"][condition] = payload["judgment"]
-            done += 1
-            if done % config.report.progress_every == 0 or done == len(tasks):
-                print(f"  answered {done}/{len(tasks)}")
-                _print_running_total()
+    accuracy_path = usage_checkpoint_path(config).with_name("accuracy.json")
+    print(f"Answering {len(items) * len(config.conditions)} item×condition pairs...")
+    results_by_key, summaries = _run_conditions(
+        items, config, prompts, clients, judge, accuracy_path
+    )
 
     finished = datetime.now(UTC).isoformat()
     return BenchmarkRun(

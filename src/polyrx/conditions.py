@@ -104,28 +104,20 @@ class Condition:
 
     @property
     def summary_key(self) -> str:
-        """Cache key for this condition's summaries.
-
-        Distinct depths and meta budgets must never share a cache entry — that
-        is how a "depth 3" number silently becomes a depth 1 number.
-        """
+        """Cache key for this condition's summaries."""
         if self.is_direct:
             return ""
         if self.is_meta:
-            return f"{self.backend}_meta_c{self.meta_cycles}"
+            depth_part = "" if self.depth == 1 else f"_d{self.depth}"
+            return f"{self.backend}{depth_part}_meta_c{self.meta_cycles}"
         return self.backend if self.depth == 1 else f"{self.backend}_d{self.depth}"
 
     @property
     def prior_summary_key(self) -> str | None:
-        """Cache key of the next-smaller meta budget, when one exists.
-
-        Budget *N* continues from budget *N-1*'s summary when it is cached,
-        which is what makes the incremental sweeps cheap.  Budget 1 has no
-        predecessor: its cycle 0 is a fresh depth-1 reflexion.
-        """
         if not self.is_meta or self.meta_cycles <= 1:
             return None
-        return f"{self.backend}_meta_c{self.meta_cycles - 1}"
+        depth_part = "" if self.depth == 1 else f"_d{self.depth}"
+        return f"{self.backend}{depth_part}_meta_c{self.meta_cycles - 1}"
 
     @property
     def family(self) -> str:

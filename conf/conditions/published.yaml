@@ -54,6 +54,18 @@ conditions:
     backend: answerer
     depth: 1
     meta_cycles: 4
+  - name: answerer_meta_c4_d2
+    backend: answerer
+    depth: 2
+    meta_cycles: 4
+  - name: answerer_meta_c4_d3
+    backend: answerer
+    depth: 3
+    meta_cycles: 4
+  - name: answerer_meta_c4_d4
+    backend: answerer
+    depth: 4
+    meta_cycles: 4
   - name: answerer_meta_c5
     backend: answerer
     depth: 1
