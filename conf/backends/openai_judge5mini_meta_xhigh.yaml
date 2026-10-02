@@ -1,7 +1,6 @@
-# Same as openai_judge4o.yaml, but the answerer thinks at xhigh reasoning
-# effort before answering -- a pilot to measure what that actually costs in
-# reasoning tokens on GPQA, which no prior run here has used at all (every
-# run so far shows 0 thinking tokens, the provider's implicit "none" default).
+# Answerer at xhigh reasoning effort (gpt-5.4-nano), both judging roles on
+# gpt-5-mini -- unlike openai_judge5mini.yaml, meta_judge is gpt-5-mini here
+# too, not gpt-4o, per this run's explicit scope.
 
 defaults:
   - base_backends
@@ -15,9 +14,9 @@ answerer:
   reasoning_effort: xhigh
 
 judge:
-  model: gpt-4o
+  model: gpt-5-mini
   system_prompt: You are a careful grader. Answer only with the requested label.
 
 meta_judge:
-  model: gpt-4o
+  model: gpt-5-mini
   system_prompt: You are an impartial evaluator of reasoning quality.
