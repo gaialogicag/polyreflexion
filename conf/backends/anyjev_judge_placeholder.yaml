@@ -1,0 +1,27 @@
+# Scaffolding only -- not runnable yet. Shows the shape a config will take
+# once AnyJev (https://github.com/nokia-applied-research/AnyJev) has a
+# served model to call: GPQA grading is already a 4-option choice question,
+# which is exactly AnyJev's typed `Question.choice` shape, so `judge` is the
+# natural first role for it (see experiments/README.md, EXP-09's "meta-judge
+# swap to Jev"). `AnyJevClient.complete()` raises NotImplementedError until
+# there is a vLLM/transformers server behind `base_url`.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: anyjev
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gpt-5.4-nano
+
+judge:
+  model: Qwen2.5-7B-Instruct
+  base_url: http://127.0.0.1:8000
+  level: L0
+  backend_kind: vllm
+
+meta_judge:
+  model: gpt-4o
+  system_prompt: You are an impartial evaluator of reasoning quality.

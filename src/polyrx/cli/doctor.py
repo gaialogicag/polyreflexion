@@ -207,23 +207,47 @@ def _probe_gemini(backend) -> None:
 
 
 def _local_backend(cfg: RootConfig) -> list[Check]:
-    """Ollama health, for whichever role(s) are actually configured with it.
+    """Ollama and AnyJev health, for whichever role(s) are configured with them.
 
     Any of the four roles can be served locally via Ollama, not just
     ``open_weights`` -- check every role instead of one hardcoded field, so
     a run that points e.g. `answerer` at Ollama still gets the daemon/model
     check a reader would expect from this command.
     """
-    from polyrx.config import OllamaConfig
+    from polyrx.config import AnyJevConfig, OllamaConfig
+
+    roles = ("answerer", "judge", "meta_judge", "open_weights")
+    anyjev_roles = [
+        (role, backend)
+        for role in roles
+        for backend in [getattr(cfg.backends, role)]
+        if isinstance(backend, AnyJevConfig)
+    ]
+    anyjev_checks = [
+        (
+            Check(
+                f"anyjev ({role})",
+                FAIL,
+                "AnyJev only answers typed grading questions — it cannot serve "
+                f"{role!r}, only 'judge' or 'meta_judge'",
+                f"point {role} at a different provider, or move AnyJev to judge/meta_judge",
+            )
+            if role not in ("judge", "meta_judge")
+            else Check(
+                f"anyjev ({role})",
+                WARN,
+                "not wired up yet — this role will raise NotImplementedError if called",
+                "see polyrx/models/anyjev_client.py",
+            )
+        )
+        for role, _ in anyjev_roles
+    ]
 
     ollama_roles = [
-        (role, backend)
-        for role in ("answerer", "judge", "meta_judge", "open_weights")
-        for backend in [getattr(cfg.backends, role)]
-        if isinstance(backend, OllamaConfig)
+        (role, backend) for role in roles for backend in [getattr(cfg.backends, role)] if isinstance(backend, OllamaConfig)
     ]
     if not ollama_roles:
-        return [
+        return anyjev_checks or [
             Check(
                 "local backend",
                 OK,
@@ -234,7 +258,7 @@ def _local_backend(cfg: RootConfig) -> list[Check]:
     if shutil.which("ollama") is None:
         names = ", ".join(role for role, _ in ollama_roles)
         pulls = "; ".join(f"ollama pull {backend.model}" for _, backend in ollama_roles)
-        return [
+        return anyjev_checks + [
             Check(
                 "ollama",
                 WARN,
@@ -243,7 +267,7 @@ def _local_backend(cfg: RootConfig) -> list[Check]:
             )
         ]
 
-    checks: list[Check] = []
+    checks: list[Check] = list(anyjev_checks)
     for role, backend in ollama_roles:
         try:
             import json

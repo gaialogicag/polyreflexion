@@ -11,6 +11,7 @@ from __future__ import annotations
 from hydra.core.config_store import ConfigStore
 
 from polyrx.config import (
+    AnyJevConfig,
     BackendsSchema,
     ConditionsConfig,
     DatasetConfig,
@@ -43,6 +44,7 @@ def register() -> ConfigStore:
     cs.store(group="backends/role", name="openai", node=OpenAIConfig)
     cs.store(group="backends/role", name="gemini", node=GeminiConfig)
     cs.store(group="backends/role", name="ollama", node=OllamaConfig)
+    cs.store(group="backends/role", name="anyjev", node=AnyJevConfig)
     cs.store(group="dataset", name="base_dataset", node=DatasetConfig)
     cs.store(name="base_field_map", node=FieldMap)
     cs.store(group="engine", name="base_engine", node=EngineConfig)

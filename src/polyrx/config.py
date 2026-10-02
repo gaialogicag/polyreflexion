@@ -126,6 +126,35 @@ class OllamaConfig(ModelConfig):
 
 
 @dataclass
+class AnyJevConfig(ModelConfig):
+    """A typed-decision model served by nokia-applied-research/AnyJev.
+
+    Scaffolding only: AnyJev's real interface is a ``Decider`` answering
+    typed ``Question`` objects (choice/score/yes-no) with a calibrated
+    probability distribution, not a prompt-in/text-out call, and it needs a
+    model served locally (vLLM or transformers), which this project has no
+    access to yet. This config and :class:`~polyrx.models.anyjev_client.AnyJevClient`
+    exist so a role can be pointed at "anyjev" in YAML and the rest of the
+    codebase (credential checks, doctor, the registry's dispatch) already
+    knows what to do with it, the same way the open-weights redesign let a
+    role point at Ollama before any Ollama config existed to use it. The
+    client itself refuses to run until there is a server to call.
+
+    Valid only for the ``judge`` and ``meta_judge`` roles: AnyJev reads a
+    calibrated probability off a typed grading question, it cannot generate
+    the free-form reasoning an ``answerer`` role needs. The registry's
+    dispatch rejects any other role.
+    """
+
+    model: str = "?"
+    base_url: str = "http://127.0.0.1:8000"
+    #: raw / L0 (zero labels) / L1 (+ calibration) / L2 (+ a fitted head) / auto.
+    level: str = "L0"
+    #: Which of AnyJev's own backends serves the model: "vllm" or "hf".
+    backend_kind: str = "vllm"
+
+
+@dataclass
 class BackendsConfig:
     """The four named roles the code asks for by alias.
 

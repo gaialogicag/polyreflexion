@@ -10,6 +10,7 @@ the role's config, so a run can answer with Gemini and judge with OpenAI.
 from __future__ import annotations
 
 from polyrx.config import (
+    AnyJevConfig,
     BackendsConfig,
     GeminiConfig,
     ModelConfig,
@@ -17,6 +18,7 @@ from polyrx.config import (
     OpenAIConfig,
     PostProcessConfig,
 )
+from polyrx.models.anyjev_client import AnyJevClient
 from polyrx.models.base import LLMClient
 from polyrx.models.gemini_client import GeminiClient
 from polyrx.models.ollama import OllamaClient
@@ -55,6 +57,14 @@ class ClientRegistry:
             client = GeminiClient(config)
         elif isinstance(config, OpenAIConfig):
             client = OpenAIClient(config)
+        elif isinstance(config, AnyJevConfig):
+            if role not in ("judge", "meta_judge"):
+                raise TypeError(
+                    f"Role {role!r} cannot be served by AnyJev -- AnyJev answers typed "
+                    "grading questions, not free-form generation, so only 'judge' and "
+                    "'meta_judge' may use it."
+                )
+            client = AnyJevClient(config)
         # Last of the isinstance chain, because every provider config above
         # subclasses ModelConfig: tested any earlier, this branch swallows a
         # fully configured role and rejects it as unconfigured. The provider
