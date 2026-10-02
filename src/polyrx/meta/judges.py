@@ -1,11 +1,14 @@
 """The three polycontextural judges.
 
 ``PolyJudge`` evaluates one completed engine run from three logical contexts
-in parallel.  Each judge replies with the proven JSON contract
+in parallel. A text-completion judge replies with the proven JSON contract
 (``{"value": ..., "rationale": ...}``); any parse failure or off-schema value
 falls back to the conservative default for its context (subjective -> F,
 objective -> F, dialectical -> R) with ``method="fallback"`` so the controller
-can detect low-confidence cycles.
+can detect low-confidence cycles. An ``AnyJevClient`` judge instead answers a
+typed yes/no question directly (see ``_ANYJEV_QUESTION``), with no text to
+parse and no off-schema case -- it can still fail (a missing model, an
+unreachable server), which the same fallback path catches.
 """
 
 from __future__ import annotations
@@ -21,8 +24,28 @@ from polyrx.meta.datatypes import (
     PolyEvaluation,
 )
 from polyrx.meta.prompts import MetaPromptRegistry
+from polyrx.models.anyjev_client import AnyJevClient
 from polyrx.models.openai_client import parse_json_response
 from polyrx.usage import submit_in_context
+
+#: The yes/no question each dimension's judge is actually answering, independent
+#: of the dataset-specific framing in prompts_meta.json. Generic on purpose: an
+#: AnyJev-backed judge asks this directly instead of parsing it back out of a
+#: dataset's own prompt wording.
+_ANYJEV_QUESTION: dict[Dimension, str] = {
+    Dimension.SUBJECTIVE: (
+        "Is this answer authentic and internally coherent, given the reasoning "
+        "artifacts shown alongside it?"
+    ),
+    Dimension.OBJECTIVE: (
+        "Is this answer objectively faithful to the original problem, with no "
+        "invented or dropped facts?"
+    ),
+    Dimension.DIALECTICAL: (
+        "Does this answer add new substance beyond the previous cycle's answer, "
+        "rather than only paraphrasing it?"
+    ),
+}
 
 # Accepted labels per pole and context (upper-cased before comparison).
 _POSITIVE_VALUES: dict[Dimension, set[str]] = {
@@ -82,8 +105,22 @@ class PolyJudge:
             corners=observation.corners_block(),
             previous_answer=observation.previous_summary or "(none)",
         )
+        client = self._clients[dimension]
         try:
-            raw = self._clients[dimension].complete(prompt)
+            if isinstance(client, AnyJevClient):
+                # A typed yes/no verdict, not JSON parsed out of free text: the
+                # prompt itself (minus the JSON-reply instruction a text model
+                # needs but AnyJev does not) is the state; the dimension's
+                # generic question is asked about it directly.
+                state = prompt.rsplit("Reply with JSON only:", 1)[0].strip()
+                positive, p_true = client.decide_verdict(state, _ANYJEV_QUESTION[dimension])
+                return ContextJudgment.make(
+                    dimension,
+                    positive,
+                    f"AnyJev {client.config.level}: p={p_true:.3f}",
+                    method=f"anyjev_{client.config.level.lower()}",
+                )
+            raw = client.complete(prompt)
             data = parse_json_response(raw)
             value = str(data.get("value", "")).strip().upper()
             rationale = str(data.get("rationale", "")).strip()

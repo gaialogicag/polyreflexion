@@ -501,6 +501,16 @@ def _run_meta_summary(
 
     judge_client = StubMetaClient() if use_stub else get_client("meta_judge")
 
+    # meta_judge's client normally doubles as the boundary/refine writer too
+    # (build_meta_controller defaults boundary_client to judge_client), which
+    # is fine for a text-completion model. An AnyJev-backed meta_judge can
+    # only read a probability off a typed question -- it has no way to write
+    # a boundary statement or a refined summary -- so that role falls back to
+    # the judge client, which is still required to be a real text model.
+    from polyrx.models.anyjev_client import AnyJevClient
+
+    boundary_client = get_client("judge") if isinstance(judge_client, AnyJevClient) else None
+
     def engine_factory(engine_depth: int) -> ReflexionEngine:
         return ReflexionEngine(
             client,
@@ -514,6 +524,7 @@ def _run_meta_summary(
     controller = build_meta_controller(
         engine_factory,
         judge_client,
+        boundary_client=boundary_client,
         config=MetaConfig(max_cycles=run_cycles, engine_depth=depth),
         meta_prompts=meta_prompts,
     )

@@ -1,0 +1,25 @@
+# Answerer at xhigh reasoning effort (gpt-5.4-nano). judge stays gpt-5-mini
+# (grades answers, and also covers meta_judge's free-text work -- boundary
+# writing, drift/contradiction checks -- that AnyJev structurally cannot do;
+# see runner.py's _run_meta_summary). meta_judge is AnyJev, for PolyJudge's
+# three typed subjective/objective/dialectical verdicts only.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: anyjev
+  - _self_
+
+answerer:
+  model: gpt-5.4-nano
+  reasoning_effort: xhigh
+
+judge:
+  model: gpt-5-mini
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: Qwen/Qwen2.5-1.5B-Instruct
+  backend_kind: hf
+  level: L0
