@@ -1,0 +1,35 @@
+# Open-weights lower-bound sweep, small tier: phi4-mini-reasoning (~3.8B).
+#
+# Fully open-weights: answerer, judge, and meta_judge are all served by
+# Ollama on the same VM. `judge`/`meta_judge` are fixed across all 8 answerer
+# variants in this sweep (same comparability principle as pinning gpt-4o
+# across EXP-14/EXP-15's judge comparisons), and deliberately not models in
+# the answerer ladder, so a run never grades itself.
+#
+# judge/meta_judge have no `system_prompt` field -- that only exists on
+# HostedModelConfig (the API-backed base), not OllamaConfig.
+#
+# Uses the existing `answerer_direct` / `answerer_reflexion` conditions
+# (not a separate open_weights_* family), so results are directly comparable
+# by condition name to the GPT studies.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: ollama
+  - /backends/role@meta_judge: ollama
+  - _self_
+
+answerer:
+  model: phi4-mini-reasoning
+  # Reasoning model: needs room for the <think> chain before the final answer.
+  num_predict: 2048
+
+judge:
+  model: qwen2.5:14b
+
+meta_judge:
+  # Different family from `judge`, matching the project's existing
+  # "meta_judge stays independent of judge" convention. Unused in this
+  # sweep's scope (direct/reflexion-d1 only, no meta conditions).
+  model: llama3.1:8b

@@ -1,0 +1,19 @@
+# Open-weights lower-bound sweep, small tier: llama3.2:3b. See
+# ollama_phi4_mini_reasoning.yaml for the pattern.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: ollama
+  - /backends/role@meta_judge: ollama
+  - _self_
+
+answerer:
+  model: llama3.2:3b
+  num_predict: 512
+
+judge:
+  model: qwen2.5:14b
+
+meta_judge:
+  model: llama3.1:8b

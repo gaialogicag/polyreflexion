@@ -207,42 +207,63 @@ def _probe_gemini(backend) -> None:
 
 
 def _local_backend(cfg: RootConfig) -> list[Check]:
+    """Ollama health, for whichever role(s) are actually configured with it.
+
+    Any of the four roles can be served locally via Ollama, not just
+    ``open_weights`` -- check every role instead of one hardcoded field, so
+    a run that points e.g. `answerer` at Ollama still gets the daemon/model
+    check a reader would expect from this command.
+    """
     from polyrx.config import OllamaConfig
 
-    ollama = cfg.backends.open_weights
-    # Only the Ollama runtime has a daemon to find and a model to pull. Served
-    # any other way, the role is an ordinary API backend and was already checked
-    # with the rest of them.
-    if not isinstance(ollama, OllamaConfig):
-        provider = type(ollama).__name__.replace("Config", "").lower()
-        return [Check("open_weights", OK, f"served by {provider}, not a local runtime")]
+    ollama_roles = [
+        (role, backend)
+        for role in ("answerer", "judge", "meta_judge", "open_weights")
+        for backend in [getattr(cfg.backends, role)]
+        if isinstance(backend, OllamaConfig)
+    ]
+    if not ollama_roles:
+        return [
+            Check(
+                "local backend",
+                OK,
+                "no role served by Ollama — every hosted role is an ordinary API "
+                "backend, already checked above",
+            )
+        ]
     if shutil.which("ollama") is None:
+        names = ", ".join(role for role, _ in ollama_roles)
+        pulls = "; ".join(f"ollama pull {backend.model}" for _, backend in ollama_roles)
         return [
             Check(
                 "ollama",
                 WARN,
-                "not installed — open_weights_* conditions cannot run",
-                "https://ollama.com, then: ollama pull " + ollama.model,
+                f"not installed — {names} cannot run",
+                f"https://ollama.com, then: {pulls}",
             )
         ]
-    try:
-        import json
-        import urllib.request
 
-        with urllib.request.urlopen(f"{ollama.host.rstrip('/')}/api/tags", timeout=3) as resp:
-            names = [m["name"] for m in json.load(resp).get("models", [])]
-    except Exception:
-        return [Check("ollama", WARN, f"not reachable at {ollama.host}", "ollama serve")]
+    checks: list[Check] = []
+    for role, backend in ollama_roles:
+        try:
+            import json
+            import urllib.request
 
-    have = any(n == ollama.model or n.startswith(f"{ollama.model}:") for n in names)
-    return [
-        Check(
-            "ollama",
-            OK if have else WARN,
-            f"running; {ollama.model} {'pulled' if have else 'NOT pulled'}",
-            "" if have else f"ollama pull {ollama.model}",
+            with urllib.request.urlopen(f"{backend.host.rstrip('/')}/api/tags", timeout=3) as resp:
+                names = [m["name"] for m in json.load(resp).get("models", [])]
+        except Exception:
+            checks.append(Check(f"ollama ({role})", WARN, f"not reachable at {backend.host}", "ollama serve"))
+            continue
+        have = any(n == backend.model or n.startswith(f"{backend.model}:") for n in names)
+        checks.append(
+            Check(
+                f"ollama ({role})",
+                OK if have else WARN,
+                f"running; {backend.model} {'pulled' if have else 'NOT pulled'}",
+                "" if have else f"ollama pull {backend.model}",
+            )
         )
-    ]
+    return checks
 
 
 def _dataset(cfg: RootConfig, live: bool) -> list[Check]:

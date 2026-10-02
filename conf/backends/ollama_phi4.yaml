@@ -1,0 +1,21 @@
+# Open-weights lower-bound sweep, mid tier: phi4 (~14.7B, standard instruct,
+# not reasoning-tuned). See ollama_phi4_mini_reasoning.yaml for the pattern
+# (answerer/judge/meta_judge all served by Ollama, judge/meta_judge fixed
+# across the whole sweep).
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: ollama
+  - /backends/role@meta_judge: ollama
+  - _self_
+
+answerer:
+  model: phi4
+  num_predict: 512
+
+judge:
+  model: qwen2.5:14b
+
+meta_judge:
+  model: llama3.1:8b

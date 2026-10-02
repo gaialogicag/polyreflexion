@@ -1,0 +1,22 @@
+# Open-weights lower-bound sweep, mid tier: llama3.1:8b. See
+# ollama_phi4_mini_reasoning.yaml for the pattern. Note: this is the same
+# model used as `meta_judge` elsewhere in this sweep -- fine here since
+# meta_judge is never invoked (no meta conditions in scope), but flagged in
+# case that scope changes later.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: ollama
+  - /backends/role@meta_judge: ollama
+  - _self_
+
+answerer:
+  model: llama3.1:8b
+  num_predict: 512
+
+judge:
+  model: qwen2.5:14b
+
+meta_judge:
+  model: llama3.1:8b

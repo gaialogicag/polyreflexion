@@ -1,0 +1,20 @@
+# Open-weights lower-bound sweep, mid tier: qwen2.5:7b. Same family as the
+# fixed `judge` (qwen2.5:14b, a different size) -- not a self-grading
+# concern since it's a different parameter count, but flagged for awareness.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: ollama
+  - /backends/role@meta_judge: ollama
+  - _self_
+
+answerer:
+  model: qwen2.5:7b
+  num_predict: 512
+
+judge:
+  model: qwen2.5:14b
+
+meta_judge:
+  model: llama3.1:8b
