@@ -1,0 +1,27 @@
+# Same as openai_judge4o.yaml, but the answerer thinks at xhigh reasoning
+# effort before answering -- a pilot to measure what that actually costs in
+# reasoning tokens on GPQA, which no prior run here has used at all (every
+# run so far shows 0 thinking tokens, the provider's implicit "none" default).
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - /backends/role@open_weights: ollama
+  - _self_
+
+answerer:
+  model: gpt-5.4-nano
+  reasoning_effort: xhigh
+
+judge:
+  model: gpt-4o
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o
+  system_prompt: You are an impartial evaluator of reasoning quality.
+
+open_weights:
+  model: phi4-mini-reasoning

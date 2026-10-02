@@ -32,6 +32,7 @@ class OpenAIClient:
         self.model = self.config.model
         self.system_prompt = self.config.system_prompt
         self.temperature = self.config.temperature
+        self.reasoning_effort = self.config.reasoning_effort
         kwargs: dict = {
             "api_key": api_key or self.config.api_key(),
             "max_retries": self.config.max_retries,
@@ -41,14 +42,22 @@ class OpenAIClient:
         self._client = OpenAI(**kwargs)
 
     def complete(self, prompt: str) -> str:
-        response = self._client.chat.completions.create(
-            model=self.model,
-            messages=[
+        kwargs: dict = {
+            "model": self.model,
+            "messages": [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": prompt},
             ],
-            temperature=self.temperature,
-        )
+        }
+        if self.reasoning_effort:
+            # Precautionary: a reasoning model at non-default effort is
+            # assumed to manage its own sampling, so temperature is left out
+            # rather than forced alongside it. Not confirmed by testing both
+            # together.
+            kwargs["reasoning_effort"] = self.reasoning_effort
+        else:
+            kwargs["temperature"] = self.temperature
+        response = self._client.chat.completions.create(**kwargs)
         # The provider already counted the tokens; throwing the count away is
         # what makes a run's cost unknowable afterwards.
         usage = getattr(response, "usage", None)

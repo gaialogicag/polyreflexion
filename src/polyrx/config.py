@@ -75,6 +75,7 @@ class OpenAIConfig(HostedModelConfig):
 
     model: str = "gpt-5.4-nano"
     api_key_env: str = "OPENAI_API_KEY"
+    reasoning_effort: str | None = None
 
 
 @dataclass
