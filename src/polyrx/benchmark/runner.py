@@ -187,6 +187,14 @@ def extract_label(prediction: str, label_space: str) -> str:
     return cleaned.splitlines()[-1].strip() if lines else cleaned
 
 
+def _qa_context(item: Item, context: str) -> str:
+    choices = item.metadata.get("choices") if item.metadata else None
+    if not choices:
+        return context
+    rendered = "\n".join(f"({letter}) {text}" for letter, text in choices.items())
+    return f"{context}\n\nAnswer choices:\n{rendered}"
+
+
 def _answer_question(
     client: LLMClient,
     prompts: PromptRegistry,
@@ -444,7 +452,7 @@ def _run_conditions(
                 _print_running_total()
             summaries[item_id][summary_key] = summary
             for condition in conditions_here:
-                grade(item, condition, summary)
+                grade(item, condition, _qa_context(item, summary))
 
     return results_by_key, dict(summaries)
 
