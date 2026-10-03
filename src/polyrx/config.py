@@ -47,6 +47,9 @@ class HostedModelConfig(ModelConfig):
     temperature: float = 0.0
     system_prompt: str = "You are an expert in modeling others' mental states."
     max_retries: int = 5
+    #: Per-request timeout. The SDK default is too short for a reasoning model
+    #: at high effort, which can legitimately take several minutes to answer.
+    timeout_s: int = 1800
 
     def api_key(self) -> str:
         """Read the key from the environment, with an actionable error.

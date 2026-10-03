@@ -36,6 +36,7 @@ class OpenAIClient:
         kwargs: dict = {
             "api_key": api_key or self.config.api_key(),
             "max_retries": self.config.max_retries,
+            "timeout": self.config.timeout_s,
         }
         if self.config.base_url:
             kwargs["base_url"] = self.config.base_url

@@ -299,9 +299,13 @@ def _run_conditions(
         nonlocal done
         backend = resolve(condition, config).backend
         client = clients[backend]
-        with attributed_to(condition):
-            prediction = _answer_question(client, prompts, context=context, item=item)
-            verdict = judge.evaluate(prediction=prediction, item=item)
+        try:
+            with attributed_to(condition):
+                prediction = _answer_question(client, prompts, context=context, item=item)
+                verdict = judge.evaluate(prediction=prediction, item=item)
+        except Exception as exc:
+            prediction = ""
+            verdict = {"correct": False, "normalized_answer": "", "method": "error", "error": str(exc)}
         with state_lock:
             key = (item.item_id, item.question)
             row = results_by_key.setdefault(
