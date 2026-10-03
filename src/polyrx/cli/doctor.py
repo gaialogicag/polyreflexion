@@ -244,7 +244,10 @@ def _local_backend(cfg: RootConfig) -> list[Check]:
     ]
 
     ollama_roles = [
-        (role, backend) for role in roles for backend in [getattr(cfg.backends, role)] if isinstance(backend, OllamaConfig)
+        (role, backend)
+        for role in roles
+        for backend in [getattr(cfg.backends, role)]
+        if isinstance(backend, OllamaConfig)
     ]
     if not ollama_roles:
         return anyjev_checks or [
@@ -258,13 +261,14 @@ def _local_backend(cfg: RootConfig) -> list[Check]:
     if shutil.which("ollama") is None:
         names = ", ".join(role for role, _ in ollama_roles)
         pulls = "; ".join(f"ollama pull {backend.model}" for _, backend in ollama_roles)
-        return anyjev_checks + [
+        return [
+            *anyjev_checks,
             Check(
                 "ollama",
                 WARN,
                 f"not installed — {names} cannot run",
                 f"https://ollama.com, then: {pulls}",
-            )
+            ),
         ]
 
     checks: list[Check] = list(anyjev_checks)
@@ -274,11 +278,13 @@ def _local_backend(cfg: RootConfig) -> list[Check]:
             import urllib.request
 
             with urllib.request.urlopen(f"{backend.host.rstrip('/')}/api/tags", timeout=3) as resp:
-                names = [m["name"] for m in json.load(resp).get("models", [])]
+                pulled_names = [m["name"] for m in json.load(resp).get("models", [])]
         except Exception:
-            checks.append(Check(f"ollama ({role})", WARN, f"not reachable at {backend.host}", "ollama serve"))
+            checks.append(
+                Check(f"ollama ({role})", WARN, f"not reachable at {backend.host}", "ollama serve")
+            )
             continue
-        have = any(n == backend.model or n.startswith(f"{backend.model}:") for n in names)
+        have = any(n == backend.model or n.startswith(f"{backend.model}:") for n in pulled_names)
         checks.append(
             Check(
                 f"ollama ({role})",

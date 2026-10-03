@@ -305,7 +305,12 @@ def _run_conditions(
                 verdict = judge.evaluate(prediction=prediction, item=item)
         except Exception as exc:
             prediction = ""
-            verdict = {"correct": False, "normalized_answer": "", "method": "error", "error": str(exc)}
+            verdict = {
+                "correct": False,
+                "normalized_answer": "",
+                "method": "error",
+                "error": str(exc),
+            }
         with state_lock:
             key = (item.item_id, item.question)
             row = results_by_key.setdefault(
