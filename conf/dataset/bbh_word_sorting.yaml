@@ -1,0 +1,22 @@
+# BIG-Bench Hard: sort a list of words alphabetically. Free-form text
+# answer (the whole sorted list), the third shape this adapter handles --
+# the gold value must never be rendered into the answerer's own prompt
+# (see conf/prompts/reflexion/bbh_freeform.yaml).
+
+defaults:
+  - base_dataset
+
+name: bbh_word_sorting
+adapter: bbh
+group_name: task
+sample_by: item
+
+primary:
+  repo_id: lukaemon/bbh
+  filename: word_sorting/test-00000-of-00001.parquet
+  revision: 982bb89fd79532a8ac676a61fc42eb1aeec63f99
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

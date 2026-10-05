@@ -27,8 +27,11 @@ from typing import Any
 
 from polyrx.datasets.base import DatasetAdapter, Item, register_adapter
 
-#: Letters assigned to multiple-choice options, in order.
-CHOICE_LETTERS = tuple("ABCDEFGH")
+#: Letters assigned to multiple-choice options, in order. 15 covers Hi-ToM's
+#: options (the widest known source so far); every caller slices or zips
+#: against its own option count, so a wider tuple costs nothing for a
+#: dataset with fewer options.
+CHOICE_LETTERS = tuple("ABCDEFGHIJKLMNO")
 
 _WHITESPACE = re.compile(r"\s+")
 

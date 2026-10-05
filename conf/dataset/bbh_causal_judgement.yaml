@@ -1,0 +1,21 @@
+# BIG-Bench Hard: causal judgment, "how would a typical person answer this
+# causation question." Two-way label (Yes/No), the second shape this
+# adapter handles.
+
+defaults:
+  - base_dataset
+
+name: bbh_causal_judgement
+adapter: bbh
+group_name: task
+sample_by: item
+
+primary:
+  repo_id: lukaemon/bbh
+  filename: causal_judgement/test-00000-of-00001.parquet
+  revision: 982bb89fd79532a8ac676a61fc42eb1aeec63f99
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

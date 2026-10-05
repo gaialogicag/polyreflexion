@@ -1,0 +1,28 @@
+# @package _global_
+# BIG-Bench Hard: causal_judgement. Two-way (Yes/No) shape -- the `default`
+# prompt set's qa template is safe here too, same reasoning as the MCQ case.
+
+defaults:
+  - override /dataset: bbh_causal_judgement
+  - override /meta: bbh
+  - override /engine: default
+  - override /prompts/reflexion: default
+  - override /prompts/meta: default
+
+experiment:
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

@@ -1,6 +1,14 @@
 {
   "_comment": "Checksums of the dataset files the published results were computed from. Regenerate with: polyrx-manifest pin",
   "entries": {
+    "dataset:Hi-ToM/Hi-ToM_Dataset/Hi-ToM_data.json": {
+      "repo_id": "Hi-ToM/Hi-ToM_Dataset",
+      "filename": "Hi-ToM_data.json",
+      "revision": "f43cd2ee0bdea6f82512b135b663eb2aca94d2ba",
+      "sha256": "e64492527ac15119b4a60aacb2803a615b3fbc13bc37bbbceba6e339f42f3810",
+      "repo_type": "dataset",
+      "size_bytes": 2267613
+    },
     "dataset:Idavidrein/gpqa/gpqa_diamond.csv": {
       "repo_id": "Idavidrein/gpqa",
       "filename": "gpqa_diamond.csv",
@@ -32,6 +40,30 @@
       "sha256": "f8462b1a2199819a2baef5ab321b7b9240249fe229b94c86d8d06c2c47fc448b",
       "repo_type": "dataset",
       "size_bytes": 31848634
+    },
+    "dataset:lukaemon/bbh/causal_judgement/test-00000-of-00001.parquet": {
+      "repo_id": "lukaemon/bbh",
+      "filename": "causal_judgement/test-00000-of-00001.parquet",
+      "revision": "982bb89fd79532a8ac676a61fc42eb1aeec63f99",
+      "sha256": "787b07b98aaaaeda52da57852a61fa89fa136d7026008e3f4958293384949de3",
+      "repo_type": "dataset",
+      "size_bytes": 67780
+    },
+    "dataset:lukaemon/bbh/tracking_shuffled_objects_seven_objects/test-00000-of-00001.parquet": {
+      "repo_id": "lukaemon/bbh",
+      "filename": "tracking_shuffled_objects_seven_objects/test-00000-of-00001.parquet",
+      "revision": "982bb89fd79532a8ac676a61fc42eb1aeec63f99",
+      "sha256": "23f26fa036a7314b86e6eca4ad985218930645b47a31f920b65da70b22f98227",
+      "repo_type": "dataset",
+      "size_bytes": 47417
+    },
+    "dataset:lukaemon/bbh/word_sorting/test-00000-of-00001.parquet": {
+      "repo_id": "lukaemon/bbh",
+      "filename": "word_sorting/test-00000-of-00001.parquet",
+      "revision": "982bb89fd79532a8ac676a61fc42eb1aeec63f99",
+      "sha256": "7c623d20c1e38e7b1b67213d0933b7b24b18edb5b9788a33ae0b05add40f7201",
+      "repo_type": "dataset",
+      "size_bytes": 44112
     },
     "dataset:nichenshun/gpqa_diamond/data/train-00000-of-00001.parquet": {
       "repo_id": "nichenshun/gpqa_diamond",

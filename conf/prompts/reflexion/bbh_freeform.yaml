@@ -1,0 +1,92 @@
+# Engine templates for BBH's free-form tasks (word_sorting,
+# multistep_arithmetic_two, dyck_languages, object_counting, ...), where the
+# gold value is a single free-text answer, not one of a stated small set.
+#
+# `qa` deliberately never references `{label_space}`: unlike a multiple-choice
+# task, naming the single correct free-form answer here would hand the model
+# the answer instead of asking for it. See src/polyrx/datasets/bbh.py.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this task:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between what the task states outright and the solver's own approach to working it out? Do not state a final answer yet.
+  objectivity_conceptuality: |-
+    Given this task:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the concrete given elements (the words, numbers, or symbols to process) and the rule or procedure that connects them to the answer? Do not state a final answer yet.
+  conceptuality_subjectivity: |-
+    Given this task:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the governing rule or procedure and the likely slips a solver could make applying it? Do not state a final answer yet.
+perspectives:
+  O: |-
+    Given this task:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, list the given elements and exactly what the task is asking for (2-4 sentences). Do not state a final answer yet.
+  S: |-
+    Given this task:
+    {input}
+
+    Region context:
+    {context}
+
+    From a solver's subjective perspective, note the approach being tried and where a slip is most likely (2-4 sentences). Do not state a final answer yet.
+  B: |-
+    Given this task:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name the governing rule or procedure and how it structures the solution (2-4 sentences). Do not state a final answer yet.
+summary: |-
+  Original task:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated summary of how to work out this task: the governing rule, the given elements, and how they connect. Do NOT state a final answer.
+qa: |-
+  You are solving a short, exact-answer task.
+
+  Reasoning context (may be the raw task or an integrated analysis):
+  {context}
+
+  Task:
+  {question}
+
+  Work out the answer, then state it.
+
+  Rules:
+  - Reply with ONLY the final answer, exactly as the task's own format expects (e.g. the sorted list, the computed number, the transformed string).
+  - No explanation, no analysis, no extra words.
+judge: |-
+  You are evaluating a short, exact-answer task.
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+
+  Decide whether the model's stated final answer matches the gold answer exactly (ignore surrounding text; look for the model's stated final answer).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "the model's final answer, or UNKNOWN"}}

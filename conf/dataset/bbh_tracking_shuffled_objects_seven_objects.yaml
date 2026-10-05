@@ -1,0 +1,25 @@
+# BIG-Bench Hard: tracking who ends up with which object after a sequence of
+# swaps, with seven objects (the hardest of the three fixed object-count
+# tiers BBH ships: three/five/seven). Multiple choice, the shape this
+# adapter calls "MCQ": options are already rendered inside `input`.
+#
+# Thematically close to Hi-ToM's belief-nesting depth: a scalable difficulty
+# parameter (object count), but tracking state, not tracking belief.
+
+defaults:
+  - base_dataset
+
+name: bbh_tracking_shuffled_objects_seven_objects
+adapter: bbh
+group_name: task
+sample_by: item
+
+primary:
+  repo_id: lukaemon/bbh
+  filename: tracking_shuffled_objects_seven_objects/test-00000-of-00001.parquet
+  revision: 982bb89fd79532a8ac676a61fc42eb1aeec63f99
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

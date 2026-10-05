@@ -1,0 +1,24 @@
+# Same as openai_judge5mini_xhigh_jevmeta.yaml, but the answerer thinks at
+# medium reasoning effort instead of xhigh -- an intermediate data point to
+# see whether the none-vs-xhigh collapse (EXP-17) is a smooth trend or a
+# step that only appears at the top of the effort scale.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: anyjev
+  - _self_
+
+answerer:
+  model: gpt-5.4-nano
+  reasoning_effort: medium
+
+judge:
+  model: gpt-5-mini
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: Qwen/Qwen2.5-1.5B-Instruct
+  backend_kind: hf
+  level: L0

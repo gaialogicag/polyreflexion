@@ -1,0 +1,29 @@
+# @package _global_
+# BIG-Bench Hard: tracking_shuffled_objects_seven_objects, 250 items.
+# MCQ shape -- the `default` prompt set's qa template (which shows the
+# label space) is safe here, same as GPQA/Hi-ToM.
+
+defaults:
+  - override /dataset: bbh_tracking_shuffled_objects_seven_objects
+  - override /meta: bbh
+  - override /engine: default
+  - override /prompts/reflexion: default
+  - override /prompts/meta: default
+
+experiment:
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

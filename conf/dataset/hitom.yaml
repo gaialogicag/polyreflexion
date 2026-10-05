@@ -1,0 +1,29 @@
+# Hi-ToM: higher-order false-belief reasoning. 1,200 rows: the same story
+# asked about at belief-nesting order 0 (the plain fact) through 4 (a
+# four-deep nested belief), crossed with story length, a "Tell"/"No_Tell"
+# deception flag, and two prompting styles from the original paper (not used
+# by this project's own prompting, carried only as metadata).
+#
+# Has its own adapter because `choices` is a single pre-rendered string
+# ("A. foo, B. bar, ..."), not a shape the tabular adapter's two choice
+# layouts cover. See src/polyrx/datasets/hitom.py.
+
+defaults:
+  - base_dataset
+
+name: hitom
+adapter: hitom
+group_name: belief order
+sample_by: context
+
+# A Hub commit sha, not a branch. `polyrx-manifest pin` re-resolves this and
+# records the file's checksum in data/MANIFEST.json.
+primary:
+  repo_id: Hi-ToM/Hi-ToM_Dataset
+  filename: Hi-ToM_data.json
+  revision: f43cd2ee0bdea6f82512b135b663eb2aca94d2ba
+  repo_type: dataset
+  gated: false
+fallbacks: []
+extras: []
+verify_checksums: true

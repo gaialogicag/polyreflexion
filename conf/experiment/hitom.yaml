@@ -1,0 +1,39 @@
+# @package _global_
+# Hi-ToM: higher-order false-belief reasoning, 1,200 rows (240 stories x 5
+# belief orders, crossed with story length / deception / prompting style).
+#
+# Belief-nesting order (0-4) is reported as the per-item group, matching H6
+# and the "Proposed datasets" paragraph's prediction: the controller should
+# help most where the answer is revisable (a higher order, where a later
+# line of the story can overturn an earlier belief) and least at order 0
+# (a plain fact, never revised).
+#
+# 1,200 rows is a lot: num_items samples that many *stories* (sample_by:
+# context), each contributing up to 5 questions (one per order), so raise it
+# gradually rather than defaulting to the full set the way GPQA's 198
+# questions can be run whole.
+
+defaults:
+  - override /dataset: hitom
+  - override /meta: hitom
+  - override /engine: default
+  - override /prompts/reflexion: default
+  - override /prompts/meta: opentom
+
+experiment:
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

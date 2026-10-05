@@ -1,0 +1,29 @@
+# @package _global_
+# BIG-Bench Hard: word_sorting. Free-form shape -- uses the dedicated
+# bbh_freeform prompt set, which never states the label space to the
+# answerer (see conf/prompts/reflexion/bbh_freeform.yaml).
+
+defaults:
+  - override /dataset: bbh_word_sorting
+  - override /meta: bbh
+  - override /engine: default
+  - override /prompts/reflexion: bbh_freeform
+  - override /prompts/meta: default
+
+experiment:
+  num_items: 10
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

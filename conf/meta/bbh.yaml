@@ -1,0 +1,16 @@
+defaults:
+  - base_meta
+
+# Shared across every BBH task. The 23 tasks cover wildly different topics
+# (logic, dates, causal judgment, sorting...), too varied for one
+# task-specific judge framing to make sense; numeric settings copied from
+# the default profile as a starting point.
+profile: bbh
+max_cycles: 2
+engine_depth: 1
+reset_depth_bonus: 1
+# Cycle 0 only: read a fully positive verdict as "expand once" rather than
+# "converged", so the loop does not stop before it has done anything.
+reinterpret_full_positive_on_cycle0: true
+drift_check_enabled: true
+max_consecutive_drifts: 2
