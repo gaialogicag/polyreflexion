@@ -1,13 +1,15 @@
 # @package _global_
 # BIG-Bench Hard: tracking_shuffled_objects_seven_objects, 250 items.
-# MCQ shape -- the `default` prompt set's qa template (which shows the
-# label space) is safe here, same as GPQA/Hi-ToM.
+# MCQ shape, but needs its own reflexion prompt set (bbh_tracking), not
+# `default` -- EXP-25 found `default` is Hi-ToM/OpenToM's belief-tracking
+# prompt, which pushed the model to narrate beliefs instead of executing the
+# swaps. See conf/prompts/reflexion/bbh_tracking.yaml.
 
 defaults:
   - override /dataset: bbh_tracking_shuffled_objects_seven_objects
   - override /meta: bbh
   - override /engine: default
-  - override /prompts/reflexion: default
+  - override /prompts/reflexion: bbh_tracking
   - override /prompts/meta: default
 
 experiment:

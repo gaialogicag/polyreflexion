@@ -1,0 +1,96 @@
+# Engine templates for BBH's causal_judgement task: "How would a typical
+# person answer this question about causation?" -- an ordinary-language
+# causal-attribution judgment (was the black wire a cause of the short
+# circuit?), not a theory-of-mind question about what anyone believes.
+#
+# Still uses prompts/reflexion: default in practice today (EXP-25 found a
+# smaller, less clear-cut gap here than on the tracking tasks, and did not
+# establish that the ToM framing is the cause on this task specifically).
+# This prompt set exists to test that directly: same structure, causal
+# framing instead of belief framing, no mention of beliefs or perception.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the facts of the scenario as stated and the ordinary-language judgment call a "typical person" would make about who or what caused the outcome? Do not answer Yes or No yet.
+  objectivity_conceptuality: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the concrete sequence of events as stated and the general causal principle that decides whether the named cause counts (e.g. necessity, abnormal conditions, or an intervening free choice)? Do not answer Yes or No yet.
+  conceptuality_subjectivity: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the governing causal principle and how an ordinary person's intuition about blame or intention might pull against a strict but-for reading of the facts? Do not answer Yes or No yet.
+perspectives:
+  O: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, list the stated facts in order: the setup, the actions taken by each party, and the outcome (2-4 sentences). Do not answer Yes or No yet.
+  S: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    Region context:
+    {context}
+
+    From the perspective of how an ordinary person would judge this, note what would make them more or less willing to call the named factor a "cause" -- e.g. whether it was the expected/normal condition, an abnormal condition, or someone's deliberate choice (2-4 sentences). Do not answer Yes or No yet.
+  B: |-
+    Given this causal-judgment scenario:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name the causal principle this scenario turns on (necessity for the outcome, an abnormal/unexpected condition standing out against a normal background, or an intervening voluntary act) and how it decides the question (2-4 sentences).
+summary: |-
+  Original scenario:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated analysis of the causal question: the relevant facts, and the causal principle (necessity, abnormality, or intervening choice) that should decide whether the named factor counts as a cause. Do NOT answer Yes or No yet.
+qa: |-
+  You are answering how a typical person would judge a causal question (BIG-Bench Hard: causal judgement).
+
+  Reasoning context (may be the raw scenario or an integrated causal analysis):
+  {context}
+
+  Question: {question}
+
+  Allowed answers (choose exactly one): {label_space}
+
+  Rules:
+  - Reply with ONLY one allowed label.
+  - Prefer the form: \\boxed{{LABEL}}
+  - No explanation, no analysis, no extra words.
+judge: |-
+  You are evaluating a causal-judgment benchmark answer (BIG-Bench Hard: causal judgement).
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold answer (allow minor wording differences, e.g. "yes"/"Yes").
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "the model answer mapped to an allowed label or UNKNOWN"}}

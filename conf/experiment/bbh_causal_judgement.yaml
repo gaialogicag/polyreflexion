@@ -1,12 +1,15 @@
 # @package _global_
-# BIG-Bench Hard: causal_judgement. Two-way (Yes/No) shape -- the `default`
-# prompt set's qa template is safe here too, same reasoning as the MCQ case.
+# BIG-Bench Hard: causal_judgement. Two-way (Yes/No) shape. Uses its own
+# causal-framing prompt set (bbh_causal), not `default` (Hi-ToM/OpenToM's
+# belief-tracking prompt) -- EXP-25 found `default` hurt clearly on the
+# tracking tasks and left open whether it also hurts here; bbh_causal tests
+# that directly instead of assuming it. See conf/prompts/reflexion/bbh_causal.yaml.
 
 defaults:
   - override /dataset: bbh_causal_judgement
   - override /meta: bbh
   - override /engine: default
-  - override /prompts/reflexion: default
+  - override /prompts/reflexion: bbh_causal
   - override /prompts/meta: default
 
 experiment:

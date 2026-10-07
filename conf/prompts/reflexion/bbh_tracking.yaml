@@ -1,0 +1,97 @@
+# Engine templates for BBH's object/position-tracking tasks
+# (tracking_shuffled_objects_*): a fixed set of named entities start with a
+# fixed set of items or roles, then swap pairwise some number of times, and
+# the question asks what one entity ends up with.
+#
+# This is a mechanical state-tracking problem, not a theory-of-mind one: there
+# is nothing to believe, only a sequence of swap operations to apply in order.
+# EXP-25 found the previous wiring (prompts/reflexion: default, written for
+# Hi-ToM/OpenToM) pushed the model to narrate what entities "might believe"
+# instead of executing the swaps -- this prompt set asks for the swaps
+# directly and never mentions beliefs, perception, or mental states.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this swap-tracking problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the stated starting assignment (who/what starts with which item or role) and the sequence of swap operations that follow it? Do not state a final answer yet.
+  objectivity_conceptuality: |-
+    Given this swap-tracking problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the literal list of swaps as written and the general rule a swap follows (exactly two entities exchange exactly what they each currently hold)? Do not state a final answer yet.
+  conceptuality_subjectivity: |-
+    Given this swap-tracking problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the swap rule itself and the bookkeeping mistakes a solver is likely to make applying it in order (e.g. updating the wrong entity, or using a stale earlier state)? Do not state a final answer yet.
+perspectives:
+  O: |-
+    Given this swap-tracking problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, state the starting assignment (who/what starts with which item or role) and list every swap in the exact order given (2-4 sentences). Do not compute a final answer yet.
+  S: |-
+    Given this swap-tracking problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a solver's perspective, apply the swaps one at a time in order, updating who currently holds what after each one, and note where a tracking slip would most likely happen (2-4 sentences). Do not state the final answer yet -- show the running state instead.
+  B: |-
+    Given this swap-tracking problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, state the governing rule plainly: each swap exchanges exactly what the two named entities currently hold, nothing else changes, and swaps apply strictly in the order given (2-4 sentences).
+summary: |-
+  Original problem:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Apply every swap in order, starting from the stated initial assignment, and write one concise plain-English summary giving the FINAL holder of every item or role after all swaps are applied. State the ending assignment for every named entity, not just the one the question asks about. Do NOT state which option letter is correct.
+qa: |-
+  You are solving a mechanical state-tracking puzzle (BIG-Bench Hard: tracking shuffled objects).
+
+  Reasoning context (may be the raw problem or an integrated final-assignment summary):
+  {context}
+
+  Question: {question}
+
+  Allowed answers (choose exactly one): {label_space}
+
+  Rules:
+  - Reply with ONLY one allowed label.
+  - Prefer the form: \\boxed{{LABEL}} where LABEL is exactly one allowed answer.
+  - No explanation, no analysis, no extra words.
+judge: |-
+  You are evaluating a state-tracking benchmark answer (BIG-Bench Hard: tracking shuffled objects).
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold answer (allow minor wording differences, e.g. the item name vs. its letter).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "the model answer mapped to an allowed label or UNKNOWN"}}
