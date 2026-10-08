@@ -3,11 +3,18 @@
 # causal-attribution judgment (was the black wire a cause of the short
 # circuit?), not a theory-of-mind question about what anyone believes.
 #
-# Still uses prompts/reflexion: default in practice today (EXP-25 found a
-# smaller, less clear-cut gap here than on the tracking tasks, and did not
-# establish that the ToM framing is the cause on this task specifically).
-# This prompt set exists to test that directly: same structure, causal
-# framing instead of belief framing, no mention of beliefs or perception.
+# v1 of this prompt (EXP-25) offered "necessity" (but-for) as one of three
+# equally-valid causal principles. Inspecting disagreements where direct
+# answered correctly and reflexion did not showed the model defaulting to
+# pure counterfactual necessity on BBH's classic symmetric/diffused-
+# responsibility items (several people doing the same normal, permitted
+# thing at once; each action was individually necessary for the outcome, but
+# the "typical person" answer is still No, because none of the actions was
+# abnormal or distinctive). v2 below makes the abnormal-condition and
+# voluntary-choice tests the PRIMARY decision procedure and demotes bare
+# necessity to "necessary but not sufficient" -- matching how this task's
+# gold labels actually decide these classic cases (Hart & Honore /
+# Hitchcock & Knobe's abnormal-conditions account of folk causal judgment).
 
 defaults:
   - base_reflexion_prompts
@@ -22,12 +29,12 @@ boundaries:
     Given this causal-judgment scenario:
     {input}
 
-    In one or two plain-English sentences, where is the boundary between the concrete sequence of events as stated and the general causal principle that decides whether the named cause counts (e.g. necessity, abnormal conditions, or an intervening free choice)? Do not answer Yes or No yet.
+    In one or two plain-English sentences, where is the boundary between the concrete sequence of events as stated and whether the named factor was a NORMAL/expected/permitted part of that sequence versus an ABNORMAL, unexpected, or prohibited one? Do not answer Yes or No yet.
   conceptuality_subjectivity: |-
     Given this causal-judgment scenario:
     {input}
 
-    In one or two plain-English sentences, where is the boundary between the governing causal principle and how an ordinary person's intuition about blame or intention might pull against a strict but-for reading of the facts? Do not answer Yes or No yet.
+    In one or two plain-English sentences, where is the boundary between "this factor was technically necessary for the outcome" and "an ordinary person would actually single this factor out as the cause"? A typical person does not call every necessary factor a cause -- being necessary is not enough on its own. Do not answer Yes or No yet.
 perspectives:
   O: |-
     Given this causal-judgment scenario:
@@ -36,7 +43,7 @@ perspectives:
     Region context:
     {context}
 
-    From an objective perspective, list the stated facts in order: the setup, the actions taken by each party, and the outcome (2-4 sentences). Do not answer Yes or No yet.
+    From an objective perspective, list the stated facts in order: the setup, what counts as the normal/expected/permitted way things were supposed to go, the actions taken by each party, and the outcome (2-4 sentences). Do not answer Yes or No yet.
   S: |-
     Given this causal-judgment scenario:
     {input}
@@ -44,7 +51,7 @@ perspectives:
     Region context:
     {context}
 
-    From the perspective of how an ordinary person would judge this, note what would make them more or less willing to call the named factor a "cause" -- e.g. whether it was the expected/normal condition, an abnormal condition, or someone's deliberate choice (2-4 sentences). Do not answer Yes or No yet.
+    From the perspective of how an ordinary person would judge this, apply this test: if the named factor was a normal, expected, or explicitly permitted action -- especially one where other parties did the identical normal thing at the same time -- an ordinary person usually does NOT call it "the cause," even though it was part of the causal chain. An ordinary person DOES call a factor "the cause" when it was abnormal, unexpected, prohibited, or a deliberate choice that stands out against the normal background. Say which of these two patterns this scenario matches and why (2-4 sentences). Do not answer Yes or No yet.
   B: |-
     Given this causal-judgment scenario:
     {input}
@@ -52,7 +59,7 @@ perspectives:
     Region context:
     {context}
 
-    From a conceptual perspective, name the causal principle this scenario turns on (necessity for the outcome, an abnormal/unexpected condition standing out against a normal background, or an intervening voluntary act) and how it decides the question (2-4 sentences).
+    From a conceptual perspective, state plainly: counterfactual necessity (the outcome would not have happened "but for" this factor) is NECESSARY but NOT SUFFICIENT for an ordinary person to call something a cause. The decisive test is whether the factor was abnormal/unexpected/prohibited/a deliberate intervening choice, versus normal/expected/permitted/shared equally among several parties. Name which side of that test this scenario falls on (2-4 sentences).
 summary: |-
   Original scenario:
   {input}
@@ -68,7 +75,7 @@ summary: |-
   Conceptuality (B):
   {corner_b}
 
-  Write one concise plain-English integrated analysis of the causal question: the relevant facts, and the causal principle (necessity, abnormality, or intervening choice) that should decide whether the named factor counts as a cause. Do NOT answer Yes or No yet.
+  Write one concise plain-English integrated analysis of the causal question. State the relevant facts, then apply this decision procedure explicitly: counterfactual necessity alone does NOT make something "the cause" to a typical person -- normal, expected, permitted actions (especially ones shared identically among several parties) are usually NOT named as causes even when necessary for the outcome; abnormal, unexpected, prohibited, or deliberately chosen actions ARE named as causes. State which side of that test the named factor falls on. Do NOT answer Yes or No yet.
 qa: |-
   You are answering how a typical person would judge a causal question (BIG-Bench Hard: causal judgement).
 
