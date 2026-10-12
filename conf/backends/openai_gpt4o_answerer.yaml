@@ -1,0 +1,21 @@
+# Answerer is gpt-4o -- EXP-27's "can a bigger model alone beat our
+# engineered pipeline" comparison. Judge stays gpt-4.1-nano, matching the
+# original Hi-ToM run (EXP-24) this is compared against.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gpt-4o
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.

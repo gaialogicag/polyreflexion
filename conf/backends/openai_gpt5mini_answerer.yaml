@@ -1,0 +1,26 @@
+# Answerer is gpt-5-mini -- EXP-27's "can a bigger model alone beat our
+# engineered pipeline" comparison. Judge stays gpt-4.1-nano, matching the
+# original Hi-ToM run (EXP-24) this is compared against. Not to be confused
+# with openai_judge5mini.yaml, where gpt-5-mini is the judge, not the
+# answerer.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gpt-5-mini
+  # gpt-5-mini rejects any temperature other than the default (1.0) when
+  # reasoning_effort is unset -- the client would otherwise send 0.0.
+  temperature: 1.0
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.
