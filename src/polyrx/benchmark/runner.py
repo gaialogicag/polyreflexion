@@ -350,7 +350,7 @@ def _run_conditions(
         print(f"Grading {len(direct_conditions)} direct condition(s) for {len(items)} items...")
         with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
             futures = [
-                pool.submit(grade, item, condition, item.context)
+                pool.submit(grade, item, condition, _qa_context(item, item.context))
                 for item in items
                 for condition in direct_conditions
             ]
