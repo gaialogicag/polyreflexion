@@ -155,6 +155,10 @@ class AnyJevConfig(ModelConfig):
     level: str = "L0"
     #: Which of AnyJev's own backends serves the model: "vllm" or "hf".
     backend_kind: str = "vllm"
+    #: Only read by backend_kind="hf". Defaults to the safe choice (works on
+    #: any machine); set to "cuda" in a backend config to use a GPU.
+    device: str = "cpu"
+    dtype: str = "float32"
 
 
 @dataclass

@@ -18,6 +18,8 @@ not a dependency of this package by default -- it pulls in ``torch`` and
 
 from __future__ import annotations
 
+import threading
+
 from polyrx.config import AnyJevConfig
 
 
@@ -33,32 +35,41 @@ class AnyJevClient:
     def __init__(self, config: AnyJevConfig | None = None) -> None:
         self.config = config or AnyJevConfig()
         self._decider = None
+        # PolyJudge calls decide_verdict from up to three threads at once
+        # (one per dimension); without this lock, each sees self._decider as
+        # None on the first call and builds its own backend.
+        self._build_lock = threading.Lock()
 
     def _get_decider(self):
         if self._decider is not None:
             return self._decider
-        try:
-            from anyjev import Decider
-        except ImportError as exc:
-            raise ImportError(
-                "AnyJev is not installed. Run: pip install 'anyjev[hf]' "
-                "(or 'anyjev' alone for a vLLM-only setup)."
-            ) from exc
+        with self._build_lock:
+            if self._decider is not None:
+                return self._decider
+            try:
+                from anyjev import Decider
+            except ImportError as exc:
+                raise ImportError(
+                    "AnyJev is not installed. Run: pip install 'anyjev[hf]' "
+                    "(or 'anyjev' alone for a vLLM-only setup)."
+                ) from exc
 
-        if self.config.backend_kind == "hf":
-            from anyjev.backends.hf import HFBackend
+            if self.config.backend_kind == "hf":
+                from anyjev.backends.hf import HFBackend
 
-            backend = HFBackend(self.config.model, device="cpu", dtype="float32")
-        elif self.config.backend_kind == "vllm":
-            from anyjev.backends.vllm import VLLMBackend
+                backend = HFBackend(
+                    self.config.model, device=self.config.device, dtype=self.config.dtype
+                )
+            elif self.config.backend_kind == "vllm":
+                from anyjev.backends.vllm import VLLMBackend
 
-            backend = VLLMBackend(self.config.base_url, self.config.model)
-        else:
-            raise ValueError(
-                f"Unknown AnyJev backend_kind {self.config.backend_kind!r}; use 'hf' or 'vllm'."
-            )
-        self._decider = Decider(backend, level=self.config.level)
-        return self._decider
+                backend = VLLMBackend(self.config.base_url, self.config.model)
+            else:
+                raise ValueError(
+                    f"Unknown AnyJev backend_kind {self.config.backend_kind!r}; use 'hf' or 'vllm'."
+                )
+            self._decider = Decider(backend, level=self.config.level)
+            return self._decider
 
     def decide_verdict(self, state: str, question_text: str) -> tuple[bool, float]:
         """A yes/no verdict and its probability, for one piece of judged content.

@@ -1,0 +1,30 @@
+# Same as openai_nano_jevmeta.yaml, but meta_judge's AnyJev backend runs on a
+# CUDA GPU (bfloat16) instead of CPU (float32). Needs a GPU-equipped instance
+# and a CUDA-enabled torch install -- on a CPU-only machine this fails at the
+# first meta_judge call with a CUDA-not-available error, not a silent
+# CPU fallback, so don't point this at the usual e2-highmem-8 VM.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: anyjev
+  - /backends/role@open_weights: ollama
+  - _self_
+
+answerer:
+  model: gpt-4.1-nano
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: Qwen/Qwen2.5-1.5B-Instruct
+  backend_kind: hf
+  level: L0
+  device: cuda
+  dtype: bfloat16
+
+open_weights:
+  model: phi4-mini-reasoning
