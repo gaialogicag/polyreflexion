@@ -1,0 +1,89 @@
+# Engine templates for MMLU-Pro: the tree builds a reasoning summary
+# and never emits an option index; the question-answering pass picks one index from it.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between established facts or definitions and uncertain inference or assumptions? Do not pick an option index yet.
+  objectivity_conceptuality: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between concrete details and the abstract principle or rule that organizes them? Do not pick an option index yet.
+  conceptuality_subjectivity: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the governing concept and the heuristic shortcuts or distractors that could mislead a solver? Do not pick an option index yet.
+perspectives:
+  O: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, list the key facts, quantities, constraints, and definitions that must hold (2-4 sentences). Do not commit to a final option index yet.
+  S: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a solver's subjective perspective, note likely traps, tempting distractors, and where intuition may conflict with the correct reasoning (2-4 sentences). Do not commit to a final option index yet.
+  B: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name the governing principle, rule, or mechanism and how it structures the solution (2-4 sentences). Do not commit to a final option index yet.
+summary: |-
+  Original problem:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated reasoning summary for solving this problem. Cover the governing principle, critical constraints, and how distractors fail. Do NOT state a final option index.
+qa: |-
+  You are answering a multiple-choice exam question (MMLU-Pro), in one of 14 subjects.
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one option index; indices start at 0): {label_space}
+
+  Rules:
+  - Reply with ONLY the index of the correct option, one of the allowed answers.
+  - Prefer the form: \\boxed{{INDEX}}
+  - No explanation, no analysis, no extra words.
+judge: |-
+  You are evaluating an MMLU-Pro multiple-choice answer.
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold index (ignore surrounding text if the index is clear).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "a single index from the allowed answers, or UNKNOWN"}}

@@ -1,0 +1,36 @@
+# @package _global_
+# MMLU-Pro: multiple-choice questions in 14 subjects, up to ten options each.
+#
+# Sits next to GPQA as a short, self-contained question with one settled
+# answer. Unlike GPQA it spans recall-heavy subjects (law, history,
+# philosophy) and derivation-heavy ones (math, physics, chemistry).
+#
+# The sampler draws items at random, not per subject, so each subject appears
+# in proportion to its share of the test split. Use enough items (a few
+# hundred) for the per-subject breakdown to mean anything. Chance accuracy is
+# about 10-11%, against 25% on GPQA.
+
+defaults:
+  - override /dataset: mmlu_pro
+  - override /meta: mmlu_pro
+  - override /engine: default
+  - override /prompts/reflexion: mmlu_pro
+  - override /prompts/meta: mmlu_pro
+
+experiment:
+  num_items: 500
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_reflexion_d2
+    - answerer_meta_c1
+    - answerer_meta_c2
+    - answerer_meta_c3
+  use_stub: false
+  cache_namespace: ""
+  detailed: false
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

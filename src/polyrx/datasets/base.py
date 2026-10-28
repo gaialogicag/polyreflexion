@@ -204,7 +204,15 @@ def register_adapter(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
 def get_adapter(config: DatasetConfig) -> DatasetAdapter:
     """Instantiate the adapter named by ``config.adapter``."""
     # Import for side effects: the built-in adapters register on import.
-    from polyrx.datasets import bbh, exploretom, gpqa, hitom, opentom, tabular  # noqa: F401
+    from polyrx.datasets import (  # noqa: F401
+        bbh,
+        exploretom,
+        gpqa,
+        hitom,
+        mmlu_pro,
+        opentom,
+        tabular,
+    )
 
     try:
         cls = _ADAPTERS[config.adapter]
@@ -220,7 +228,15 @@ def get_adapter(config: DatasetConfig) -> DatasetAdapter:
 
 
 def available_adapters() -> tuple[str, ...]:
-    from polyrx.datasets import bbh, exploretom, gpqa, hitom, opentom, tabular  # noqa: F401
+    from polyrx.datasets import (  # noqa: F401
+        bbh,
+        exploretom,
+        gpqa,
+        hitom,
+        mmlu_pro,
+        opentom,
+        tabular,
+    )
 
     return tuple(sorted(_ADAPTERS))
 

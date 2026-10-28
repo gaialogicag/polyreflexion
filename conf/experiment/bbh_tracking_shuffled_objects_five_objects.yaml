@@ -1,0 +1,34 @@
+# @package _global_
+# BIG-Bench Hard: tracking_shuffled_objects_five_objects, 250 items.
+# MCQ shape, same prompt set as the seven-objects sibling task
+# (prompts/reflexion: bbh_tracking) -- the prompt talks about entities and
+# swaps in the abstract, never the object count, so it transfers unchanged.
+#
+# meta_c1-c3 are deliberately not in the condition list: answerer_meta_c4
+# runs the full 4-cycle chain itself when no lower-tier cache exists (see
+# runner.py's seed_summary handling), so grading only c4 still produces the
+# complete result at lower cost than grading every intermediate tier. Run on
+# the VM 2026-10-13, backends=openai_nano: direct 17.6% (44/250), reflexion
+# 91.6% (229/250), meta_c4 91.6% (229/250).
+
+defaults:
+  - override /dataset: bbh_tracking_shuffled_objects_five_objects
+  - override /meta: bbh
+  - override /engine: default
+  - override /prompts/reflexion: bbh_tracking
+  - override /prompts/meta: default
+
+experiment:
+  num_items: 250
+  seed: 42
+  max_workers: 24
+  conditions:
+    - answerer_direct
+    - answerer_reflexion
+    - answerer_meta_c4
+  use_stub: false
+  cache_namespace: bbh_tracking_shuffled_objects_five_objects_full
+  detailed: true
+  merge_from: null
+  extend_from: null
+  drop_conditions: []

@@ -1,0 +1,27 @@
+# MMLU-Pro: multiple-choice questions in 14 subjects, 3 to 10 options each.
+#
+# Has its own adapter because the options are one list column in a parquet
+# file and the option count varies per question. The test split holds 12,032
+# questions; run a sample (experiment.num_items), not the whole set.
+
+defaults:
+  - base_dataset
+
+name: mmlu_pro
+adapter: mmlu_pro
+group_name: category
+sample_by: item
+
+# A Hub commit sha, not a branch. The checksum is the Hub's own LFS sha256 for
+# this file; `polyrx-manifest pin` re-resolves both and records them in
+# data/MANIFEST.json.
+primary:
+  repo_id: TIGER-Lab/MMLU-Pro
+  filename: data/test-00000-of-00001.parquet
+  revision: b189ec765aa7ed75c8acfea42df31fdae71f97be
+  repo_type: dataset
+  gated: false
+  sha256: 0e24a191921c2f453518a537a8b2117bd137e7714d4ef1565e9ba06c1ecb9ad8
+fallbacks: []
+extras: []
+verify_checksums: true

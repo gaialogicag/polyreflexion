@@ -18,9 +18,8 @@ file, ``<task>/test-00000-of-00001.parquet``); this adapter does not need a
 new file or a code change to support another task, only a new dataset
 config pointing at a different file.
 
-The free-form branch carries the same leak risk MathArena's integer answer
-does: the gold value cannot be stated in the answerer's own prompt without
-handing it the answer. ``conf/prompts/reflexion/bbh_freeform.yaml``'s `qa`
+The free-form branch carries a leak risk: the gold value cannot be stated in
+the answerer's own prompt without handing it the answer. ``conf/prompts/reflexion/bbh_freeform.yaml``'s `qa`
 template is written to never render ``{label_space}`` for exactly that
 reason; the MCQ and two-way branches use the ordinary ``default`` prompt
 set, where showing the label space is safe because it does not say which
