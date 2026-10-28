@@ -77,14 +77,14 @@ class AnyJevClient:
         ``state`` is everything the model should read (the problem, the
         answer under evaluation, any supporting artifacts); ``question_text``
         is the single yes/no question asked about it. Returns
-        ``(positive, p_true)`` -- ``positive`` is ``p_true >= 0.5``.
+        ``(positive, p_true)`` -- ``positive`` is ``p_true >= self.config.threshold``.
         """
         from anyjev import Question
 
         decider = self._get_decider()
         question = Question.noul(question_text, name="verdict")
         decision = decider.decide(state, [question])["verdict"]
-        return decision.p_true >= 0.5, decision.p_true
+        return decision.p_true >= self.config.threshold, decision.p_true
 
     def complete(self, prompt: str) -> str:
         raise NotImplementedError(

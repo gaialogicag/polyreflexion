@@ -164,6 +164,13 @@ class AnyJevConfig(ModelConfig):
     #: any machine); set to "cuda" in a backend config to use a GPU.
     device: str = "cpu"
     dtype: str = "float32"
+    #: positive = p_true >= threshold. 0.5 is the textbook default for a
+    #: binary call; at level L0 (uncalibrated) the model's own p_true
+    #: distribution can sit well above 0.5 on average, in which case 0.5
+    #: barely discriminates and an empirically higher cutoff separates
+    #: cases better. Not AnyJev calibration (no labels used) -- just where
+    #: the line is drawn.
+    threshold: float = 0.5
 
 
 @dataclass
