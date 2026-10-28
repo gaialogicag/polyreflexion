@@ -99,6 +99,11 @@ class GeminiConfig(HostedModelConfig):
     #: Ceiling on the answer itself. ``None`` leaves it to the provider — which
     #: is what a reasoning model needs, since thinking is billed against this.
     max_output_tokens: int | None = None
+    #: When true, the final answer step is constrained to return exactly one
+    #: allowed label (a JSON schema with an enum), so the model cannot write a worked
+    #: solution first. A token cap cannot do this: the model starts reasoning
+    #: and is cut off before it names an answer. Summaries stay free text.
+    structured_answer: bool = False
 
 
 @dataclass

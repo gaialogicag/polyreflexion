@@ -207,7 +207,11 @@ def _answer_question(
         question=item.question,
         label_space=item.label_space,
     )
-    raw = client.complete(prompt).strip()
+    choose = getattr(client, "complete_choice", None)
+    if callable(choose):
+        raw = choose(prompt, item.allowed_labels()).strip()
+    else:
+        raw = client.complete(prompt).strip()
     return extract_label(raw, item.label_space)
 
 

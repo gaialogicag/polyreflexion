@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from polyrx.config import GeminiConfig
@@ -76,11 +77,44 @@ class GeminiClient:
             )
         return types.GenerateContentConfig(**settings)
 
+    def complete_choice(self, prompt: str, choices: list[str]) -> str:
+        """Answer with exactly one of ``choices``.
+
+        Falls back to :meth:`complete` unless ``structured_answer`` is set, so
+        a config that does not ask for it behaves as before.
+        """
+        if not self.config.structured_answer or not choices:
+            return self.complete(prompt)
+        from google.genai import types
+
+        settings: dict[str, Any] = {
+            "system_instruction": self.system_prompt,
+            "temperature": self.temperature,
+            "response_mime_type": "application/json",
+            "response_schema": {
+                "type": "OBJECT",
+                "properties": {"answer": {"type": "STRING", "enum": list(choices)}},
+                "required": ["answer"],
+            },
+        }
+        if self.config.thinking_budget is not None:
+            settings["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=self.config.thinking_budget
+            )
+        raw = self._generate(prompt, types.GenerateContentConfig(**settings))
+        try:
+            return str(json.loads(raw)["answer"])
+        except (ValueError, KeyError, TypeError):
+            return raw
+
     def complete(self, prompt: str) -> str:
+        return self._generate(prompt, self._request_config)
+
+    def _generate(self, prompt: str, request_config: Any) -> str:
         response = self._client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config=self._request_config,
+            config=request_config,
         )
         # Thinking tokens are billed as output, so they belong in the tally even
         # though they never reach `.text`.
