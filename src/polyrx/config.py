@@ -378,6 +378,11 @@ class ReflexionPrompts:
     #: Asks the question given the built summary. Empty in the interactive set,
     #: which has no scoring pass.
     qa: str = ""
+    #: Chain-of-thought variant of ``qa``: same question, but the model is told
+    #: to reason step by step before it states the answer. Selected per
+    #: condition by ``ConditionSpec.cot``, so that one run can score an
+    #: answer-only baseline and a chain-of-thought baseline side by side.
+    qa_cot: str = ""
     #: Decides whether an answer matches the gold label when the adapter could
     #: not place it. Empty means fall back to a string comparison.
     judge: str = ""

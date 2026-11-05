@@ -87,3 +87,21 @@ judge: |-
 
   Reply with JSON only:
   {{"correct": true or false, "normalized_answer": "A or B or C or D or UNKNOWN"}}
+# Chain-of-thought baseline: the same question as `qa`, with the derivation
+# written out before the letter.
+qa_cot: |-
+  You are answering a graduate-level science multiple-choice question (GPQA).
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one letter): {label_space}
+
+  Think through the problem step by step, checking your work. Then give the final answer.
+
+  Rules:
+  - End your reply with the letter of the correct option in the form \\boxed{{LETTER}}.
+  - Box exactly one allowed letter, and put it last.
