@@ -229,6 +229,7 @@ def _run_suite(cfg: RootConfig) -> int:
         report=cfg.report,
         postprocess=cfg.postprocess,
         condition_registry=registry,
+        engine=cfg.engine,
     )
     run = run_benchmark(config)
     if base is not None:

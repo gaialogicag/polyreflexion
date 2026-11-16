@@ -425,6 +425,12 @@ class EngineConfig:
     #: Tree depth used when a caller does not specify one. Conditions carry
     #: their own depth, so this only applies outside the benchmark grid.
     default_max_depth: int = 2
+    #: Carry every ancestor triangle's boundaries into its corner regions
+    #: instead of replacing them. Off reproduces the published runs.
+    accumulate_boundaries: bool = False
+    #: Make a child's boundary statement narrow the parent's boundary on the
+    #: same edge instead of regenerating it. Keeps the region a triple.
+    narrow_boundaries: bool = False
     #: The pool is sized to the tree: three branches per node, one level of
     #: lookahead. The cap stops a deep tree from opening thousands of threads.
     worker_pool_cap: int = 128

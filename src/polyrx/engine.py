@@ -62,6 +62,19 @@ class Boundaries:
                 raise ValueError(f"No edge between {a} and {b}")
 
 
+#: Appended to a boundary prompt when the edge narrows one the parent already
+#: drew. Keeps the region a triple -- apex plus two boundaries -- while making
+#: the child's statement subsume the parent's instead of replacing it.
+_NARROW_SUFFIX = (
+    "\n\nThe wider boundary previously drawn on this same edge was:\n"
+    "\"{prior}\"\n\n"
+    "You are describing that same edge inside a smaller region, so your sentence "
+    "must narrow that statement rather than replace it. Keep every distinction it "
+    "draws, including every person, object, place and event it names, and add only "
+    "what is more specific here."
+)
+
+
 @dataclass(frozen=True)
 class Region:
     """A triangle in the Sierpinski grid: apex plus two adjacent boundaries."""
@@ -69,19 +82,60 @@ class Region:
     apex: Perspective
     left: str | None
     right: str | None
+    #: Boundaries inherited from ancestor triangles, outermost first. Empty
+    #: unless the engine runs with ``accumulate_boundaries``. The default
+    #: (empty) reproduces the original behaviour exactly: descending into a
+    #: corner replaces the parent's two boundaries rather than adding to them.
+    inherited: tuple[str, ...] = ()
 
     @classmethod
     def root(cls) -> Region:
         """Root triangle with no boundaries yet."""
         return cls(apex=Perspective.OBJECTIVITY, left=None, right=None)
 
-    def corner(self, perspective: Perspective, boundaries: Boundaries) -> Region:
-        """Corner sub-triangle for one of the three remaining Sierpinski parts."""
+    def prior_for(self, edge: frozenset[Perspective]) -> str | None:
+        """This region's own boundary lying on ``edge``, if ``edge`` touches the apex.
+
+        In the gasket, a corner sub-triangle's two apex-adjacent edges are
+        sub-segments of the parent's. The boundary drawn on such an edge is
+        therefore a narrowing of the parent's, not an independent statement.
+        The third edge (opposite the apex) is the new midline and has no
+        parent counterpart, so this returns ``None`` for it.
+        """
+        if self.apex not in edge:
+            return None
+        left_neighbor, right_neighbor = _neighbors(self.apex)
+        other = next(iter(edge - {self.apex}))
+        if other == left_neighbor:
+            return self.left
+        if other == right_neighbor:
+            return self.right
+        return None
+
+    def corner(
+        self,
+        perspective: Perspective,
+        boundaries: Boundaries,
+        *,
+        accumulate: bool = False,
+    ) -> Region:
+        """Corner sub-triangle for one of the three remaining Sierpinski parts.
+
+        With ``accumulate`` the parent's own two boundaries are carried into
+        the child alongside the freshly derived ones, so a depth-n region
+        states every divergence named on the path down to it. Without it the
+        parent's boundaries are dropped, which is what the published runs did.
+        """
         left_neighbor, right_neighbor = _neighbors(perspective)
+        inherited: tuple[str, ...] = ()
+        if accumulate:
+            prior = tuple(b for b in (self.left, self.right) if b is not None)
+            inherited = self.inherited + prior
         return Region(
             apex=perspective,
             left=boundaries.between(perspective, left_neighbor),
             right=boundaries.between(perspective, right_neighbor),
+            inherited=inherited,
         )
 
 
@@ -258,6 +312,8 @@ class ReflexionEngine:
         self._config = config or EngineConfig()
         max_depth = self._config.default_max_depth if max_depth is None else max_depth
         self._max_depth = max_depth
+        self._accumulate = self._config.accumulate_boundaries
+        self._narrow = self._config.narrow_boundaries
         self._parallel = parallel
         self._llm_pool: ThreadPoolExecutor | None = None
         self._tree_pool: ThreadPoolExecutor | None = None
@@ -329,9 +385,13 @@ class ReflexionEngine:
 
     def _find_boundaries(self, text: str, region: Region) -> Boundaries:
         enriched = self._enriched_input(text, region)
-        prompts = [
-            self._prompts.boundary(edge).format(input=enriched) for edge in _BOUNDARY_EDGE_ORDER
-        ]
+        prompts = []
+        for edge in _BOUNDARY_EDGE_ORDER:
+            prompt = self._prompts.boundary(edge).format(input=enriched)
+            prior = region.prior_for(edge) if self._narrow else None
+            if prior:
+                prompt += _NARROW_SUFFIX.format(prior=prior)
+            prompts.append(prompt)
         os_, ob, bs = self._parallel_llm(prompts)
         return Boundaries(
             objectivity_subjectivity=os_,
@@ -364,7 +424,7 @@ class ReflexionEngine:
                 # mypy cannot infer a lambda with a bound default here.
                 lambda p=p: self._reflexion(  # type: ignore[misc]
                     text,
-                    region.corner(p, boundaries),
+                    region.corner(p, boundaries, accumulate=self._accumulate),
                     depth + 1,
                 )
                 for p in _PERSPECTIVE_ORDER
@@ -385,6 +445,8 @@ class ReflexionEngine:
             parts.append(f"Left boundary: {region.left}")
         if region.right is not None:
             parts.append(f"Right boundary: {region.right}")
+        for i, boundary in enumerate(region.inherited, start=1):
+            parts.append(f"Prior boundary {i}: {boundary}")
         return "\n".join(parts)
 
 

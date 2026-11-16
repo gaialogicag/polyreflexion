@@ -27,6 +27,7 @@ from polyrx.benchmark.meta_trace_io import (
 from polyrx.conditions import Condition, ConditionRegistry
 from polyrx.config import (
     DatasetConfig,
+    EngineConfig,
     PathsConfig,
     PostProcessConfig,
     PromptsConfig,
@@ -116,6 +117,9 @@ class BenchmarkConfig:
     postprocess: PostProcessConfig = field(default_factory=PostProcessConfig)
     # Custom condition grid; ``None`` uses the published one.
     condition_registry: ConditionRegistry | None = None
+    # The reflexion engine's own settings, so a run can change how the tree is
+    # built (e.g. accumulate_boundaries) without touching the call sites.
+    engine: EngineConfig = field(default_factory=EngineConfig)
 
 
 @dataclass
@@ -490,6 +494,7 @@ def _run_conditions(
                             max_cycles=meta_cycles,
                             meta_prompts=MetaPromptRegistry(config.prompts.meta),
                             seed_summary=seed_summary,
+                            engine_config=config.engine,
                         )
                         save_meta_trace(meta_result, meta_trace_path(cache_path))
                     else:
@@ -499,6 +504,7 @@ def _run_conditions(
                             context,
                             depth=depth,
                             max_workers=config.max_workers,
+                            engine_config=config.engine,
                         )
                         # One retry with a stricter reminder if the model collapses into token salad.
                         if looks_degenerate(summary, config.postprocess.degeneracy):
@@ -516,6 +522,7 @@ def _run_conditions(
                                 stricter,
                                 depth=depth,
                                 max_workers=config.max_workers,
+                                engine_config=config.engine,
                             )
                     cache_path.write_text(summary, encoding="utf-8")
                 _print_running_total()
@@ -533,6 +540,7 @@ def _run_reflexion_summary(
     *,
     depth: int,
     max_workers: int,
+    engine_config: EngineConfig | None = None,
 ) -> str:
     """Run one reflexion tree and return the integrated summary text."""
     with ReflexionEngine(
@@ -540,6 +548,7 @@ def _run_reflexion_summary(
         prompts=prompts,
         max_depth=depth,
         max_workers=max_workers,
+        config=engine_config,
     ) as engine:
         return engine.run(context).summary
 
@@ -555,6 +564,7 @@ def _run_meta_summary(
     max_cycles: int,
     meta_prompts: MetaPromptRegistry,
     seed_summary: str | None = None,
+    engine_config: EngineConfig | None = None,
 ):
     """Build one story context via the polycontextural meta layer.
 
@@ -586,6 +596,7 @@ def _run_meta_summary(
             prompts=prompts,
             max_depth=engine_depth,
             max_workers=max_workers,
+            config=engine_config,
         )
 
     # Full budget when starting cold; continuation only needs the delta cycles.
@@ -696,6 +707,7 @@ def backfill_meta_traces(
                 use_stub=config.use_stub,
                 max_cycles=meta_cycles,
                 meta_prompts=MetaPromptRegistry(config.prompts.meta),
+                engine_config=config.engine,
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             if not cache_path.exists():
