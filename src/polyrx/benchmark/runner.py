@@ -94,6 +94,8 @@ class BenchmarkConfig:
     seed: int = 42
     reflexion_depth: int = 1
     max_workers: int = 4
+    #: Items whose summaries are built at the same time. 1 builds them one by one.
+    item_workers: int = 1
     conditions: tuple[str, ...] = ()
     use_stub: bool = False
     # Isolates summary cache for fresh runs (e.g. "ot_v2"). Empty = legacy paths.
@@ -453,7 +455,19 @@ def _run_conditions(
             f"for {len(items)} items, grading {conditions_here} as each completes..."
         )
         client = _client(backend, config.use_stub)
-        for i, item in enumerate(items, start=1):
+
+        def build_item(
+            i: int,
+            item: Item,
+            # Bound now, not looked up when the call runs, so the function keeps
+            # this summary key's values whatever the loop does next.
+            summary_key: str = summary_key,
+            depth: int = depth,
+            is_meta: bool = is_meta,
+            meta_cycles: int | None = meta_cycles,
+            client: LLMClient = client,
+            conditions_here: list[str] = conditions_here,
+        ) -> None:
             item_id, context = item.item_id, item.context
             cache_path = _summary_cache_path(
                 summary_key, item_id, depth, namespace=config.cache_namespace, paths=config.paths
@@ -526,9 +540,19 @@ def _run_conditions(
                             )
                     cache_path.write_text(summary, encoding="utf-8")
                 _print_running_total()
-            summaries[item_id][summary_key] = summary
+            with state_lock:
+                summaries[item_id][summary_key] = summary
             for condition in conditions_here:
                 grade(item, condition, _qa_context(item, summary))
+
+        # Each item's summary is an independent chain of calls, so several run
+        # at once. ``item_workers=1`` is the old one-at-a-time order exactly.
+        with ThreadPoolExecutor(max_workers=config.item_workers) as item_pool:
+            futures = [
+                item_pool.submit(build_item, i, item) for i, item in enumerate(items, start=1)
+            ]
+            for future in futures:
+                future.result()  # Surfaces a worker's exception instead of swallowing it.
 
     return results_by_key, dict(summaries)
 
@@ -870,6 +894,7 @@ def load_run(path: Path) -> BenchmarkRun:
         seed=cfg.get("seed", 42),
         reflexion_depth=cfg.get("reflexion_depth", 1),
         max_workers=cfg.get("max_workers", 4),
+        item_workers=cfg.get("item_workers", 1),
         conditions=tuple(cfg.get("conditions", ())),
         use_stub=cfg.get("use_stub", False),
         cache_namespace=cfg.get("cache_namespace", ""),
@@ -981,6 +1006,7 @@ def merge_runs(base: BenchmarkRun, extra: BenchmarkRun) -> BenchmarkRun:
             seed=base.config.seed,
             reflexion_depth=max(base.config.reflexion_depth, extra.config.reflexion_depth),
             max_workers=base.config.max_workers,
+            item_workers=base.config.item_workers,
             conditions=conditions,
             use_stub=base.config.use_stub or extra.config.use_stub,
             cache_namespace=base.config.cache_namespace or extra.config.cache_namespace,

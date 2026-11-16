@@ -679,6 +679,8 @@ class ExperimentConfig:
     num_items: int = 10
     seed: int = 42
     max_workers: int = 4
+    #: Items whose summaries are built at the same time. 1 builds them one by one.
+    item_workers: int = 1
     #: Condition names resolved against :mod:`polyrx.conditions`.
     conditions: list[str] = field(default_factory=list)
     #: Offline path: no network, deterministic stub responses.

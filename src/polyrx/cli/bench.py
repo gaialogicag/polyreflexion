@@ -218,6 +218,7 @@ def _run_suite(cfg: RootConfig) -> int:
         num_items=len(only_ids) if only_ids else exp.num_items,
         seed=exp.seed,
         max_workers=exp.max_workers,
+        item_workers=exp.item_workers,
         conditions=conditions,
         use_stub=exp.use_stub,
         cache_namespace=exp.cache_namespace,
