@@ -1,0 +1,28 @@
+# Goal-free worlds: a context, a minimal instruction that names no task, no
+# reward and no activity, and nothing to score. Used by the play probe in
+# conf/experiment/goalfree.yaml.
+#
+# `gold` and `labels` are both "N/A". Accuracy on this dataset is meaningless
+# by construction -- the run is read from the meta-controller's cycle records,
+# not from its score.
+
+defaults:
+  - base_dataset
+
+name: goalfree
+adapter: tabular
+group_name: world
+sample_by: item
+
+fields:
+  context: world
+  question: instruction
+  answer: gold
+  label_space: labels
+  group: world_id
+
+primary:
+  path: data/goalfree/goalfree.jsonl
+fallbacks: []
+extras: []
+verify_checksums: false

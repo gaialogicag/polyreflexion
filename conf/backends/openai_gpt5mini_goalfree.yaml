@@ -1,0 +1,28 @@
+# Answerer is gpt-5-mini at medium reasoning effort, for the goal-free probe.
+#
+# Temperature is not set, and cannot be: the API refuses any value but the
+# default for this model ("Unsupported value: 'temperature' does not support 0
+# with this model"), with or without reasoning_effort. The client omits
+# temperature whenever reasoning_effort is set, which is what this config
+# relies on. Runs with this backend are therefore sampled, not greedy, and are
+# not directly comparable to the temperature-0 gpt-4.1-nano runs.
+#
+# Judge and meta judge match every other condition in the paper, so only the
+# answerer changes.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gpt-5-mini
+  reasoning_effort: medium
+
+judge:
+  model: gpt-4.1-nano
+
+meta_judge:
+  model: gpt-4o-mini

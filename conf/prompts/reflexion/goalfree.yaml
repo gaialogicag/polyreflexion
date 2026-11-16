@@ -1,0 +1,82 @@
+# Engine templates for the goal-free probe. Same structure as every other
+# reflexion prompt set; the one thing removed is the task. Nothing here asks
+# for an answer, because the item states no question to answer.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Here is where you are:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between what is simply the case here and how it is being taken up?
+  objectivity_conceptuality: |-
+    Here is where you are:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the elements present here and any rule or pattern that could connect them?
+  conceptuality_subjectivity: |-
+    Here is where you are:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between a rule that could be adopted here and the inclination to adopt it?
+perspectives:
+  O: |-
+    Here is where you are:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, state what is present here and what it affords (2-4 sentences).
+  S: |-
+    Here is where you are:
+    {input}
+
+    Region context:
+    {context}
+
+    From a subjective perspective, state what is worth doing here and why it appeals (2-4 sentences).
+  B: |-
+    Here is where you are:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name a rule, constraint or pattern that could be adopted here, and what it would make possible (2-4 sentences).
+summary: |-
+  Where you are:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Write one concise plain-English integrated account of what is going on here and what is being done with it.
+qa: |-
+  Reasoning context (may be the raw situation or an integrated analysis):
+  {context}
+
+  Where you are:
+  {question}
+
+  Decide what to do here, and do it. Say what you did.
+
+  Rules:
+  - Nothing is being scored, and there is no correct response.
+  - Do not ask what is wanted. Nothing is wanted.
+  - Reply in at most six sentences.
+judge: |-
+  This item is not scoreable: it states no task and its gold value is "N/A".
+
+  Reply with JSON only, exactly this and nothing else:
+  {{"correct": false, "normalized_answer": "N/A"}}

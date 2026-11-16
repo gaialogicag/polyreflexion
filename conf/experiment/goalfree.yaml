@@ -1,0 +1,29 @@
+# @package _global_
+# The play probe. The engine runs its ordinary meta cycles on an item that
+# states no task, no reward and nothing to score.
+#
+# The meta prompts are deliberately left at `default`: the judges and the
+# controller are exactly the ones used everywhere else in the paper, so the
+# only variable is the absence of a goal. What is read off this run is the
+# controller's behaviour -- the verdict triples, the actions, and the
+# termination reason -- not the accuracy, which is meaningless here.
+
+defaults:
+  - override /dataset: goalfree
+  - override /meta: default
+  - override /engine: default
+  - override /prompts/reflexion: goalfree
+  - override /prompts/meta: default
+
+experiment:
+  num_items: 8
+  seed: 42
+  max_workers: 4
+  conditions:
+    - answerer_meta_c4
+  use_stub: false
+  cache_namespace: "goalfree_nano"
+  detailed: true
+  merge_from: null
+  extend_from: null
+  drop_conditions: []
