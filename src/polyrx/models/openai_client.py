@@ -76,13 +76,43 @@ class OpenAIClient:
         return response.choices[0].message.content or ""
 
 
+#: A backslash that JSON does not define an escape for. JSON allows only
+#: ``\" \\ \/ \b \f \n \r \t`` and ``\uXXXX``; anything else makes
+#: ``json.loads`` raise ``Invalid \escape``. A model writing LaTeX in a
+#: rationale (``\frac``, ``\boxed``, ``\(``) produces exactly that, which is
+#: why this is worth repairing rather than rejecting.
+_STRAY_BACKSLASH = re.compile(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})')
+
+
+def _escape_stray_backslashes(text: str) -> str:
+    """Double every backslash JSON would reject, leaving valid escapes alone."""
+    return _STRAY_BACKSLASH.sub(r"\\\\", text)
+
+
 def parse_json_response(text: str) -> dict:
-    """Extract a JSON object from model output."""
+    """Extract a JSON object from model output.
+
+    Tries the text as it came, then the first ``{...}`` block in it, then both
+    again with stray backslashes escaped. The repair matters for judges: a
+    rationale containing LaTeX is not malformed reasoning, but it is malformed
+    JSON, and the caller cannot tell the two apart from an exception.
+    """
     text = text.strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        raise
+    block = re.search(r"\{.*\}", text, re.DOTALL)
+    candidates = [text]
+    if block:
+        candidates.append(block.group())
+    candidates += [_escape_stray_backslashes(c) for c in list(candidates)]
+
+    error: json.JSONDecodeError | None = None
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            error = error or exc
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    if error is not None:
+        raise error
+    raise ValueError("model reply held no JSON object")
