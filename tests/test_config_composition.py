@@ -99,8 +99,11 @@ class TestConditionGrids:
     @pytest.mark.parametrize("name", config_names("conditions"))
     def test_no_two_distinct_conditions_share_a_cache_key(self, name: str) -> None:
         """Two real conditions on one key means one method's numbers are served
-        from the other's cache. An alias is excluded: sharing its target's key
-        is exactly what an alias is for, so a retired name re-runs nothing."""
+        from the other's cache. Two exclusions: an alias, because sharing its
+        target's key is exactly what an alias is for, and a chain-of-thought
+        condition, because ``cot`` changes only the question-answering prompt.
+        Its summaries are built by the same engine from the same text as its
+        answer-only twin, so sharing that cache is correct, not a collision."""
         from polyrx.conditions import registry_from_config
 
         cfg = load_config([f"conditions={name}"])
@@ -111,7 +114,9 @@ class TestConditionGrids:
         registry = registry_from_config(entries)
 
         keys = [
-            c.summary_key for c in registry.ordered() if c.summary_key and c.name not in aliases
+            c.summary_key
+            for c in registry.ordered()
+            if c.summary_key and c.name not in aliases and not c.cot
         ]
         assert len(keys) == len(set(keys))
 

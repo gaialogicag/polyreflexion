@@ -7,6 +7,9 @@ defaults:
 conditions:
   - name: answerer_direct
     backend: answerer
+  - name: answerer_direct_cot
+    backend: answerer
+    cot: true
   - name: answerer_reflexion
     backend: answerer
     depth: 1

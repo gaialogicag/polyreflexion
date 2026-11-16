@@ -172,6 +172,7 @@ class PromptRegistry:
         self._summary = prompts.summary
         # Empty in the interactive set, which has no scoring pass.
         self._qa = prompts.qa
+        self._qa_cot = prompts.qa_cot
         self._judge = prompts.judge
 
     def boundary(self, edge: frozenset[Perspective]) -> str:
@@ -199,14 +200,30 @@ class PromptRegistry:
         """Whether a judge template is configured for this prompt set."""
         return bool(self._judge)
 
-    def qa(self, *, context: str, question: str, label_space: str) -> str:
-        """Ask the question, given whatever context the condition produced."""
-        if not self._qa:
+    def has_cot_template(self) -> bool:
+        """Whether this prompt set carries a chain-of-thought question template."""
+        return bool(self._qa_cot)
+
+    def qa(self, *, context: str, question: str, label_space: str, cot: bool = False) -> str:
+        """Ask the question, given whatever context the condition produced.
+
+        With ``cot`` the chain-of-thought template is used instead of the
+        answer-only one, so a chain-of-thought baseline and an answer-only
+        baseline can be scored in the same run.
+        """
+        template = self._qa_cot if cot else self._qa
+        if not template:
+            if cot:
+                raise KeyError(
+                    "This prompt set has no `qa_cot` template, so it cannot run a "
+                    "chain-of-thought condition. Add one to the prompt set, or drop "
+                    "the condition from the grid."
+                )
             raise KeyError(
                 "This prompt set has no `qa` template, so it cannot score a "
                 "benchmark. Select one that does, e.g. prompts/reflexion=default."
             )
-        return self._qa.format(context=context, question=question, label_space=label_space)
+        return template.format(context=context, question=question, label_space=label_space)
 
     def judge(self, *, gold: str, prediction: str, label_space: str) -> str:
         """Ask a model whether an answer matches the gold label."""

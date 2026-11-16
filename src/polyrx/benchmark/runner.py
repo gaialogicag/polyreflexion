@@ -201,18 +201,30 @@ def _answer_question(
     *,
     context: str,
     item: Item,
-) -> str:
+    cot: bool = False,
+) -> tuple[str, str]:
+    """Answer one question. Returns the extracted label and the raw reply.
+
+    The raw reply is returned, not thrown away, because under a
+    chain-of-thought prompt it holds the model's whole reasoning. That text is
+    the only record of what the answerer actually did, and without it a
+    finished run cannot be asked why a condition scored the way it did.
+    """
     prompt = prompts.qa(
         context=context,
         question=item.question,
         label_space=item.label_space,
+        cot=cot,
     )
-    choose = getattr(client, "complete_choice", None)
+    # A constrained-choice call can only emit one of the labels, which leaves
+    # the model no room to reason, so a chain-of-thought condition always takes
+    # the free-text path and has its answer parsed out of the reply.
+    choose = None if cot else getattr(client, "complete_choice", None)
     if callable(choose):
         raw = choose(prompt, item.allowed_labels()).strip()
     else:
         raw = client.complete(prompt).strip()
-    return extract_label(raw, item.label_space)
+    return extract_label(raw, item.label_space), raw
 
 
 def _backends_for_conditions(conditions: tuple[str, ...], config: BenchmarkConfig) -> set[str]:
@@ -238,6 +250,25 @@ def _summary_cache_path(
     cache_dir = root / namespace / folder if namespace else root / folder
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / f"{item_id}.txt"
+
+
+def _answer_record_path(
+    condition: str,
+    item_id: str,
+    *,
+    namespace: str = "",
+    paths: PathsConfig | None = None,
+) -> Path:
+    """Where one answerer reply is kept.
+
+    Laid out like the summary cache so both records of a run sit side by side,
+    but it is a record and never an input: a reply here is never read back to
+    skip work, so re-running a condition always re-answers and overwrites.
+    """
+    root = (paths or PathsConfig()).resolved("cache_dir") / "answers"
+    record_dir = root / namespace / condition if namespace else root / condition
+    record_dir.mkdir(parents=True, exist_ok=True)
+    return record_dir / f"{item_id}.txt"
 
 
 def _print_running_total() -> None:
@@ -301,20 +332,31 @@ def _run_conditions(
 
     def grade(item: Item, condition: str, context: str) -> None:
         nonlocal done
-        backend = resolve(condition, config).backend
-        client = clients[backend]
+        spec = resolve(condition, config)
+        client = clients[spec.backend]
         try:
             with attributed_to(condition):
-                prediction = _answer_question(client, prompts, context=context, item=item)
+                prediction, raw_reply = _answer_question(
+                    client, prompts, context=context, item=item, cot=spec.cot
+                )
                 verdict = judge.evaluate(prediction=prediction, item=item)
         except Exception as exc:
             prediction = ""
+            raw_reply = ""
             verdict = {
                 "correct": False,
                 "normalized_answer": "",
                 "method": "error",
                 "error": str(exc),
             }
+        if raw_reply:
+            _answer_record_path(
+                condition,
+                item.item_id,
+                namespace=config.cache_namespace,
+                paths=config.paths,
+            ).write_text(raw_reply, encoding="utf-8")
+
         with state_lock:
             key = (item.item_id, item.question)
             row = results_by_key.setdefault(

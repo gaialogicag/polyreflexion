@@ -18,6 +18,12 @@ defaults:
 conditions:
   - name: answerer_direct
     backend: answerer
+  # Chain-of-thought baseline: no reflexion pass, but the model reasons in its
+  # own reply (prompts.qa_cot). It is the control for "does the gain come from
+  # the polycontextural structure, or only from letting the model think?".
+  - name: answerer_direct_cot
+    backend: answerer
+    cot: true
 
   - name: answerer_reflexion
     backend: answerer
@@ -54,6 +60,19 @@ conditions:
     backend: answerer
     depth: 1
     meta_cycles: 4
+  # Chain-of-thought answering on top of the meta loop: same summaries and the
+  # same cache key as answerer_meta_c4, so the two differ only in the question
+  # prompt. That is what makes a comparison against answerer_direct_cot fair.
+  - name: answerer_meta_c4_cot
+    backend: answerer
+    depth: 1
+    meta_cycles: 4
+    cot: true
+  - name: answerer_reflexion_cot
+    backend: answerer
+    depth: 1
+    cot: true
+
   - name: answerer_meta_c4_d2
     backend: answerer
     depth: 2
@@ -103,6 +122,9 @@ conditions:
   # in how far each one was allowed to go.
   - name: open_weights_direct
     backend: open_weights
+  - name: open_weights_direct_cot
+    backend: open_weights
+    cot: true
   - name: open_weights_reflexion
     backend: open_weights
     depth: 1

@@ -636,6 +636,10 @@ class ConditionSpec:
     #: Meta loop budget. ``0`` disables the meta layer. A meta condition runs a
     #: depth-1 reflexion on cycle 0, so it carries ``depth >= 1``.
     meta_cycles: int = 0
+    #: Answer with the chain-of-thought question template (``prompts.qa_cot``)
+    #: instead of the answer-only one. Independent of ``depth``: at ``depth 0``
+    #: it is the chain-of-thought baseline.
+    cot: bool = False
     #: Retired name kept working for a release; points at its replacement.
     alias_of: str | None = None
     note: str = ""

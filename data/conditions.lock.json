@@ -8,6 +8,13 @@
       "prior_summary_key": null,
       "summary_key": ""
     },
+    "answerer_direct_cot": {
+      "backend": "answerer",
+      "depth": 0,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": ""
+    },
     "answerer_meta": {
       "backend": "answerer",
       "depth": 1,
@@ -44,6 +51,13 @@
       "summary_key": "answerer_meta_c3"
     },
     "answerer_meta_c4": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 4,
+      "prior_summary_key": "answerer_meta_c3",
+      "summary_key": "answerer_meta_c4"
+    },
+    "answerer_meta_c4_cot": {
       "backend": "answerer",
       "depth": 1,
       "meta_cycles": 4,
@@ -113,6 +127,13 @@
       "prior_summary_key": null,
       "summary_key": "answerer"
     },
+    "answerer_reflexion_cot": {
+      "backend": "answerer",
+      "depth": 1,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": "answerer"
+    },
     "answerer_reflexion_d2": {
       "backend": "answerer",
       "depth": 2,
@@ -149,6 +170,13 @@
       "summary_key": "answerer_d7"
     },
     "open_weights_direct": {
+      "backend": "open_weights",
+      "depth": 0,
+      "meta_cycles": 0,
+      "prior_summary_key": null,
+      "summary_key": ""
+    },
+    "open_weights_direct_cot": {
       "backend": "open_weights",
       "depth": 0,
       "meta_cycles": 0,

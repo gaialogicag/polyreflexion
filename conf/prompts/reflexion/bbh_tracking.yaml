@@ -95,3 +95,20 @@ judge: |-
 
   Reply with JSON only:
   {{"correct": true or false, "normalized_answer": "the model answer mapped to an allowed label or UNKNOWN"}}
+# Chain-of-thought baseline: the same question as `qa`, but the model works the
+# swaps out in its own reply instead of naming the final owner in one step.
+qa_cot: |-
+  You are solving a mechanical state-tracking puzzle (BIG-Bench Hard: tracking shuffled objects).
+
+  Reasoning context (may be the raw problem or an integrated final-assignment summary):
+  {context}
+
+  Question: {question}
+
+  Allowed answers (choose exactly one): {label_space}
+
+  Think step by step. Track the state after each swap, then give the final answer.
+
+  Rules:
+  - End your reply with the answer in the form \\boxed{{LABEL}}, where LABEL is exactly one allowed answer.
+  - Box exactly one allowed label, and put it last.

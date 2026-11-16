@@ -58,12 +58,19 @@ class Condition:
         Budget for the polycontextural meta loop. ``0`` disables the meta layer.
         Cycle 0 of a meta run is always a depth-1 reflexion on the original
         text, which is why meta conditions carry ``depth=1``.
+    cot:
+        Answer with the chain-of-thought question template rather than the
+        answer-only one.  At ``depth=0`` this is the chain-of-thought baseline:
+        no reflexion pass, but the model reasons in its own answer.  It changes
+        the question-answering prompt only, so it leaves ``summary_key``
+        untouched and every cached summary stays valid.
     """
 
     name: str
     backend: str
     depth: int = 0
     meta_cycles: int = 0
+    cot: bool = False
     #: Set on retired names kept working for one release; points at the
     #: replacement so callers can warn once and move on.
     alias_of: str | None = None
@@ -127,7 +134,8 @@ class Condition:
     def label(self) -> str:
         """Human-readable description for report tables."""
         if self.is_direct:
-            return f"{self.backend}, no reflexion"
+            reasoning = "chain-of-thought" if self.cot else "no reflexion"
+            return f"{self.backend}, {reasoning}"
         if self.is_meta:
             cycles = "cycle" if self.meta_cycles == 1 else "cycles"
             return f"{self.backend}, depth {self.depth} + {self.meta_cycles} meta {cycles}"
@@ -224,6 +232,7 @@ def registry_from_config(conditions: Iterable[Any]) -> ConditionRegistry:
                 backend=str(backend),
                 depth=get("depth", 0) or 0,
                 meta_cycles=get("meta_cycles", 0) or 0,
+                cot=bool(get("cot", False)),
                 alias_of=get("alias_of", None) or None,
                 note=get("note", "") or "",
             )

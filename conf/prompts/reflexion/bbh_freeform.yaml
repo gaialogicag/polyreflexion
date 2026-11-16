@@ -90,3 +90,19 @@ judge: |-
 
   Reply with JSON only:
   {{"correct": true or false, "normalized_answer": "the model's final answer, or UNKNOWN"}}
+# Chain-of-thought baseline: the same task as `qa`, with the work shown before
+# the final string.
+qa_cot: |-
+  You are solving a short, exact-answer task.
+
+  Reasoning context (may be the raw task or an integrated analysis):
+  {context}
+
+  Task:
+  {question}
+
+  Think step by step, then give the final answer.
+
+  Rules:
+  - End your reply with a last line of the form: Answer: <final answer>
+  - The final answer must be exactly as the task's own format expects (e.g. the sorted list, the computed number, the transformed string), with no commentary on that line.

@@ -26,6 +26,7 @@ experiment:
   max_workers: 4
   conditions:
     - answerer_direct
+    - answerer_direct_cot
     - answerer_reflexion
     - answerer_reflexion_d2
     - answerer_meta_c1

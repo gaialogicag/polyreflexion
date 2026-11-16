@@ -209,8 +209,9 @@ those would let a value silently break the algorithm.
 ## Conditions
 
 A condition is one cell of the experiment grid: a backend, a reflexion depth,
-and a meta cycle budget. Everything else — cache key, whether a summary pass is
-needed, which budget it continues from — is derived from those three numbers.
+a meta cycle budget, and a chain-of-thought flag. Everything else — cache key,
+whether a summary pass is needed, which budget it continues from — is derived
+from those numbers.
 
 The grid is config, in `conf/conditions/`. `polyrx/conditions.py` defines only
 what a condition *is*.
@@ -220,18 +221,28 @@ polyrx-conditions show          # print the grid with its derived cache keys
 polyrx-bench conditions=answerer_only
 ```
 
-| Name | Backend | Depth | Meta cycles |
-|---|---|---|---|
-| `answerer_direct` | answerer | 0 | 0 |
-| `answerer_reflexion` | answerer | 1 | 0 |
-| `answerer_reflexion_d2` | answerer | 2 | 0 |
-| `answerer_reflexion_d3` | answerer | 3 | 0 |
-| `answerer_meta_c1` … `answerer_meta_c4` | answerer | 1 | 1 … 4 |
-| `open_weights_direct` | open_weights | 0 | 0 |
-| `open_weights_reflexion` | open_weights | 1 | 0 |
-| `open_weights_reflexion_d2` | open_weights | 2 | 0 |
-| `open_weights_reflexion_d3` | open_weights | 3 | 0 |
-| `open_weights_meta_c1` … `open_weights_meta_c4` | open_weights | 1 | 1 … 4 |
+| Name | Backend | Depth | Meta cycles | Chain of thought |
+|---|---|---|---|---|
+| `answerer_direct` | answerer | 0 | 0 | no |
+| `answerer_direct_cot` | answerer | 0 | 0 | yes |
+| `answerer_reflexion` | answerer | 1 | 0 | no |
+| `answerer_reflexion_d2` | answerer | 2 | 0 | no |
+| `answerer_reflexion_d3` | answerer | 3 | 0 | no |
+| `answerer_meta_c1` … `answerer_meta_c4` | answerer | 1 | 1 … 4 | no |
+| `open_weights_direct` | open_weights | 0 | 0 | no |
+| `open_weights_direct_cot` | open_weights | 0 | 0 | yes |
+| `open_weights_reflexion` | open_weights | 1 | 0 | no |
+| `open_weights_reflexion_d2` | open_weights | 2 | 0 | no |
+| `open_weights_reflexion_d3` | open_weights | 3 | 0 | no |
+| `open_weights_meta_c1` … `open_weights_meta_c4` | open_weights | 1 | 1 … 4 | no |
+
+`*_direct_cot` is the chain-of-thought baseline. It runs no reflexion pass, but
+it answers with the prompt set's `qa_cot` template, which tells the model to
+reason step by step before it states the answer. Every other condition answers
+with `qa`, which asks for the label alone. The flag changes the
+question-answering prompt only, so a chain-of-thought condition shares no cache
+key with anything and leaves every summary already on disk valid. A prompt set
+without a `qa_cot` template cannot run one, and says so.
 
 Group shorthands work on the command line: `answerer` is every answerer condition,
 `answerer_nod3` is the same without the expensive depth-3 run, `all` is everything.

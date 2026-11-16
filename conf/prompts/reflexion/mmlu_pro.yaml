@@ -87,3 +87,22 @@ judge: |-
 
   Reply with JSON only:
   {{"correct": true or false, "normalized_answer": "a single index from the allowed answers, or UNKNOWN"}}
+# Chain-of-thought baseline: the same question as `qa`, with the reasoning
+# written out before the index. This is the prompt the published 65.8% direct
+# step-by-step number was produced with.
+qa_cot: |-
+  You are answering a multiple-choice exam question (MMLU-Pro), in one of 14 subjects.
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one option index; indices start at 0): {label_space}
+
+  Think through the problem step by step, checking your work. Then give the final answer.
+
+  Rules:
+  - End your reply with the index of the correct option in the form \\boxed{{INDEX}}.
+  - Box exactly one allowed index, and put it last.

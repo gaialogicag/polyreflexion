@@ -101,3 +101,20 @@ judge: |-
 
   Reply with JSON only:
   {{"correct": true or false, "normalized_answer": "the model answer mapped to an allowed label or UNKNOWN"}}
+# Chain-of-thought baseline: the same question as `qa`, with the reasoning
+# written out before the verdict.
+qa_cot: |-
+  You are answering how a typical person would judge a causal question (BIG-Bench Hard: causal judgement).
+
+  Reasoning context (may be the raw scenario or an integrated causal analysis):
+  {context}
+
+  Question: {question}
+
+  Allowed answers (choose exactly one): {label_space}
+
+  Think step by step about what a typical person would say, then give the final answer.
+
+  Rules:
+  - End your reply with the answer in the form \\boxed{{LABEL}}, where LABEL is exactly one allowed answer.
+  - Box exactly one allowed label, and put it last.
