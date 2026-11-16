@@ -329,6 +329,7 @@ def _run_conditions(
     # results_by_key/accuracy_tally/done and the checkpoint write itself needs
     # to be serialized, not just the checkpoint's own tmp-file replace.
     state_lock = threading.Lock()
+    items_path = accuracy_path.with_name("graded_items.jsonl")
 
     def grade(item: Item, condition: str, context: str) -> None:
         nonlocal done
@@ -386,6 +387,19 @@ def _run_conditions(
             # after every call -- not batched to progress_every, so a crash
             # mid-grading loses at most the one item in flight.
             _write_accuracy_checkpoint(accuracy_path, accuracy_tally)
+            # One line per graded answer, kept as it happens. The full results
+            # file is written only when the run ends, so without this a run
+            # that dies late loses every per-item answer.
+            with items_path.open("a", encoding="utf-8") as handle:
+                record = {
+                    "item_id": item.item_id,
+                    "group": item.group,
+                    "condition": condition,
+                    "gold_label": item.gold_label,
+                    "prediction": prediction,
+                    "correct": bool(verdict.get("correct")),
+                }
+                handle.write(json.dumps(record) + "\n")
             done += 1
             if done % config.report.progress_every == 0 or done == total_tasks:
                 print(f"  answered {done}/{total_tasks}")
