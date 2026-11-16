@@ -25,6 +25,7 @@ Incremental meta budgets, each continuing from the previous one's summaries::
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -212,6 +213,9 @@ def _run_suite(cfg: RootConfig) -> int:
         # comparable with the ones already in the run.
         base = load_run(_resolve_run_path(exp.merge_from, results_dir, dataset))
         only_ids = frozenset({r["item_id"] for r in base.results})
+    elif exp.only_items_file:
+        # A fixed list of items, scored from scratch: no earlier run to merge into.
+        only_ids = frozenset(json.loads(Path(exp.only_items_file).read_text(encoding="utf-8")))
 
     config = BenchmarkConfig(
         dataset=cfg.dataset,

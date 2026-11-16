@@ -696,6 +696,8 @@ class ExperimentConfig:
     extend_from: str | None = None
     #: Drop these conditions when merging or extending.
     drop_conditions: list[str] = field(default_factory=list)
+    #: JSON file holding a list of item ids: score exactly these items, no merge.
+    only_items_file: str | None = None
 
 
 @dataclass
