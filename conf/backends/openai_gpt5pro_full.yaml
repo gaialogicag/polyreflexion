@@ -1,0 +1,25 @@
+# Answerer is gpt-5-pro -- extends EXP-27's "can a bigger model alone beat
+# our engineered pipeline" comparison to the top tier of the gpt-5 family.
+# Judge stays gpt-4.1-nano, matching every other model in that comparison.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gpt-5-pro
+  # Same temperature restriction as the rest of the gpt-5 family (see
+  # openai_gpt5_full.yaml): only the default (1.0) is accepted when
+  # reasoning_effort is unset.
+  temperature: 1.0
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.

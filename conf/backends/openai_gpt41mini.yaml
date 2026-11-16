@@ -1,0 +1,26 @@
+# gpt-4.1-mini as the answerer and the grader. gpt-4.1-nano was withdrawn by
+# OpenAI on 2026-10-23 (the API answers 404 "deprecated"), so every run that
+# used `openai_nano` has to move to a model that still exists. Results from this
+# file are not comparable with the gpt-4.1-nano rows.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: openai
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - /backends/role@open_weights: ollama
+  - _self_
+
+answerer:
+  model: gpt-4.1-mini
+
+judge:
+  model: gpt-4.1-mini
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.
+
+open_weights:
+  model: phi4-mini-reasoning

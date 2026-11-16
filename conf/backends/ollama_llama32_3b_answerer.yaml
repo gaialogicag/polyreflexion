@@ -1,0 +1,31 @@
+# Answerer is llama3.2:3b served locally by Ollama, graded exactly like every
+# other Table 1 row.
+#
+# Differs from ollama_llama32_3b.yaml, which is an all-open lower-bound sweep
+# (judge qwen2.5:14b, meta_judge llama3.1:8b). Here judge and meta-judge stay
+# gpt-4.1-nano/gpt-4o-mini, matching openai_gpt41_full.yaml,
+# gemini_flash_lite_answerer.yaml and ollama_qwen25_3b_answerer.yaml, so
+# grading methodology does not confound the answerer-capability comparison.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: llama3.2:3b
+  num_predict: 512
+  # OllamaConfig defaults to 0.2; every other Table 1 row answers at 0.0, and
+  # a temperature difference would add run-to-run variance the other rows do
+  # not have.
+  temperature: 0.0
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.

@@ -1,0 +1,30 @@
+# Answerer is Gemini 3.5 Flash-Lite, a small model from a second provider
+# family, to add its own T^0/T^1/T^1,c=4 row alongside gpt-4.1-nano's in
+# Table 1. Judge and meta-judge stay gpt-4.1-nano/gpt-4o-mini, matching
+# every other row (openai_gpt41_full.yaml, openai_gpt4o_answerer.yaml,
+# etc.), so grading methodology does not confound the answerer-capability
+# comparison.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: gemini
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: gemini-3.5-flash-lite
+  # gemini-3.5-flash-lite rejects thinking_budget=0 (400 INVALID_ARGUMENT) --
+  # unlike gemini-2.5-flash, it cannot fully disable thinking. -1 (let the
+  # model choose) burned ~2M tokens and $3.02 on a single ExploreToM story
+  # across 3 conditions -- 5x the entire published nano row's full 83-item
+  # meta_c4 condition. A small fixed budget keeps thinking bounded instead.
+  thinking_budget: 512
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.

@@ -1,0 +1,31 @@
+# Answerer is qwen2.5:7b served locally by Ollama. Pairs with
+# ollama_qwen25_3b_answerer.yaml to test whether the architecture needs a
+# minimum answerer capability: qwen2.5:3b loses accuracy at every stage on
+# ExploreToM (66.3 -> 57.8 -> 55.4), while gpt-4.1-nano gains. If 7b gains
+# where 3b loses, the effect is a capability threshold rather than a
+# property of one model.
+#
+# Judge and meta-judge stay gpt-4.1-nano/gpt-4o-mini, matching every row of
+# Table 1, so grading methodology does not confound the comparison.
+
+defaults:
+  - base_backends
+  - /backends/role@answerer: ollama
+  - /backends/role@judge: openai
+  - /backends/role@meta_judge: openai
+  - _self_
+
+answerer:
+  model: qwen2.5:7b
+  num_predict: 512
+  # Matches the 0.0 every other Table 1 row answers at; OllamaConfig
+  # defaults to 0.2.
+  temperature: 0.0
+
+judge:
+  model: gpt-4.1-nano
+  system_prompt: You are a careful grader. Answer only with the requested label.
+
+meta_judge:
+  model: gpt-4o-mini
+  system_prompt: You are an impartial evaluator of reasoning quality.
