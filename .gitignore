@@ -27,3 +27,9 @@ htmlcov/
 
 # Internal planning notes. Not published with the method.
 docs/prd-*.md
+
+*.json
+*.log
+*.csv
+*.md
+*.parquet
