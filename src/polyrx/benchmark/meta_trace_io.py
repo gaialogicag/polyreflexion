@@ -26,11 +26,26 @@ class TraceCycle:
     global_value: str
     action: str
     judgments: tuple[TraceJudgment, ...]
+    #: The cycle's own answer. Kept so a trace shows what the loop did, not
+    #: only how its verdicts moved; a run reports one cycle's text and
+    #: discards the rest, which is unreadable without this.
+    summary: str = ""
+    #: What this cycle was given to work from.
+    input_text: str = ""
+    #: Whether the drift check rejected this cycle.
+    drifted: bool = False
+    #: Every candidate answer produced this cycle, including the ones the
+    #: controller did not select.
+    candidate_summaries: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class MetaTraceRecord:
-    """Minimal cycle history for dimension attribution (no full engine tree)."""
+    """Cycle history for dimension attribution and for reading a run back.
+
+    Carries each cycle's own answer and its discarded candidates, but not the
+    reflexion tree beneath a cycle.
+    """
 
     selected_cycle: int
     termination_reason: str
@@ -67,6 +82,10 @@ def save_meta_trace(result: MetaResult, path: Path) -> None:
                 "global_value": cycle.global_value.value,
                 "action": cycle.action,
                 "judgments": [j.to_dict() for j in cycle.evaluation.judgments()],
+                "summary": cycle.result.summary,
+                "input_text": cycle.input_text,
+                "drifted": cycle.drifted,
+                "candidate_summaries": list(cycle.candidate_summaries),
             }
             for cycle in result.cycles
         ],
@@ -99,6 +118,10 @@ def load_meta_trace(path: Path) -> MetaTraceRecord | None:
                 global_value=str(raw.get("global_value", "")),
                 action=str(raw.get("action", "")),
                 judgments=judgments,
+                summary=str(raw.get("summary", "")),
+                input_text=str(raw.get("input_text", "")),
+                drifted=bool(raw.get("drifted", False)),
+                candidate_summaries=tuple(raw.get("candidate_summaries", []) or ()),
             )
         )
     return MetaTraceRecord(
