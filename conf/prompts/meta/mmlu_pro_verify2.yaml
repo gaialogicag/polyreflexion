@@ -1,0 +1,159 @@
+# Multi-subject exam questions, with an objective judge that verifies instead of
+# assessing.
+#
+# In `mmlu_pro` the objective judge is asked whether the summary is "faithful" and to
+# "penalize invented numbers". It cannot tell an invented number from a correct one
+# without redoing the work, so it restates the summary's claims and calls the
+# restatement accurate. Here it must first re-derive every checkable claim from the
+# stem, independently, and write the derivation down before it returns a verdict.
+# The reply schema puts `derivation` before `value`, so the working is generated
+# before the verdict rather than after it. Everything else is identical to `mmlu_pro`.
+
+defaults:
+  - base_meta_prompts
+
+judge_subjective: |-
+  You are a polycontextural judge for the SUBJECTIVE context (exam reasoning summary).
+
+  Original problem:
+  {question}
+
+  Integrated reasoning summary under evaluation:
+  {answer}
+
+  Perspective artifacts from reflexion (O = facts/constraints, S = traps/intuition, B = governing principle):
+  {corners}
+
+  Is the summary authentic and internally coherent as a solver's reasoning narrative? Judge coherence of assumptions and eliminations — not whether the final index would be correct.
+
+  Name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "A" or "F", "rationale": "one short paragraph"}}
+judge_objective: |-
+  You are a polycontextural judge for the OBJECTIVE context (exam reasoning summary).
+
+  Original problem:
+  {question}
+
+  Integrated reasoning summary under evaluation:
+  {answer}
+
+  Do not assess this summary. Redo its work and compare.
+
+  Step 1. List every checkable claim it makes: a computed value, a converted
+  quantity, a cited definition, rule, date, or named mechanism, and any assertion
+  about what the stem states.
+
+  Step 2. Derive each one yourself from the stem, without using the summary's
+  statement of it as evidence. Rules for this step:
+  - Never quote a value from memory. Produce it by the procedure that defines it.
+  - For any conversion or expansion, work in exact fractions or integers. Decimals
+    are rounded and will not let a repeating procedure close.
+  - Run a repeating procedure until a state you have already seen comes back. Say
+    which state repeated and at which step. If nothing has repeated after eight
+    steps, say so and treat the claim as unconfirmed.
+  - If a claim is about the stem, quote the words of the stem that carry it.
+
+  Step 3. Compare what you derived with what the summary says, claim by claim.
+  "The summary correctly identifies X" is not a comparison unless X appears in your
+  own derivation above.
+
+  Return "W" only if every checkable claim matches your derivation. Return "F" if
+  any claim disagrees with it, or if a claim could not be derived or located.
+
+  Reply with JSON only, with the keys in this order. Write `derivation` in full
+  before you decide `value`:
+  {{"derivation": "your own working for each claim, with the values you obtained and where any repetition closed", "value": "W" or "F", "rationale": "one short paragraph naming each claim and the value you derived for it"}}
+judge_dialectical: |-
+  You are a polycontextural judge for the DIALECTICAL context (exam reasoning summary).
+
+  Original problem:
+  {question}
+
+  Integrated reasoning summary under evaluation:
+  {answer}
+
+  Previous cycle's summary (may be '(none)' on the first cycle):
+  {previous_answer}
+
+  Does this summary add useful substantive content (mechanism detail, constraint use, distractor elimination) that was not already explicit in the previous summary? Or is it merely a paraphrase with no new solving power?
+
+  Name the specific statements that drove your verdict.
+
+  Reply with JSON only:
+  {{"value": "W" or "R", "rationale": "one short paragraph"}}
+boundary_negation: |-
+  You are refining a exam reasoning summary along the {dimension} axis.
+
+  Original problem:
+  {question}
+
+  Current integrated summary:
+  {answer}
+
+  Judge feedback:
+  {judge_feedback}
+
+  Positive verdict ({dimension}, {verdict_label}):
+  {rationale}
+
+  Gaps to address (from failing judges):
+  {repair_priorities}
+
+  Write a semantic boundary (2-4 sentences) describing what this summary still omits or blurs in the {dimension} context — especially constraints, mechanisms, or distractor analysis. Describe the boundary, not a full rewrite. Do not state a final option index.
+expand_input: |-
+  Original problem:
+  {question}
+
+  Current integrated reasoning summary:
+  {answer}
+
+  Judge feedback (address every NOT satisfied item without dropping correct facts):
+  {judge_feedback}
+
+  Expansion axis: {dimension}
+
+  Semantic boundary:
+  {boundary}
+
+  Task: Write a NEW integrated reasoning summary (plain English, one concise paragraph) that:
+  - Keeps every correct constraint, quantity, and mechanism from the current summary and problem.
+  - Adds the solving detail implied by the boundary and missing judge concerns.
+  - Does NOT state a final option index (0-9) — only deepen the reasoning.
+  - Explicitly notes why tempting distractors fail when relevant.
+refine_input: |-
+  Original problem:
+  {question}
+
+  Current integrated reasoning summary:
+  {answer}
+
+  Judge feedback:
+  {judge_feedback}
+
+  Strength to preserve (apex {apex}):
+  {apex_guidance}
+
+  [Region]
+  Apex: {apex}
+  Left boundary ({left_label}): {left_boundary}
+  Right boundary ({right_label}): {right_boundary}
+
+  Task: Write a refined integrated reasoning summary inside this region. Fix the failing judge concerns using the two boundaries as constraints. Preserve correct content; deepen mechanism and distractor analysis. One concise paragraph; do NOT state a final option index.
+contradiction_check: |-
+  Boundary A:
+  {first}
+
+  Boundary B:
+  {second}
+
+  Are these two boundary descriptions mutually contradictory for the same problem? Reply with exactly one word: yes or no.
+drift_check: |-
+  Original problem:
+  {question}
+
+  Integrated reasoning summary:
+  {answer}
+
+  Does this summary still address the same problem and constraints as the original (not a different topic)? Reply with exactly one word: yes or no.

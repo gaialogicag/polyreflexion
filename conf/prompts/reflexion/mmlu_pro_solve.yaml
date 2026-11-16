@@ -1,0 +1,114 @@
+# Engine templates for MMLU-Pro where the tree is allowed to solve the problem.
+#
+# `mmlu_pro` forbids every stage from reaching a conclusion, so the summary states
+# a method and stops. Here each stage may commit to an answer and the summary must
+# end with one, stated in the question's own terms. The tree still never sees the
+# option list, so it names a value, not an index; the answering pass maps that value
+# onto an index as before. Algorithm 1 is unchanged: one engine pass per input, one
+# answering call at the end.
+
+defaults:
+  - base_reflexion_prompts
+
+boundaries:
+  objectivity_subjectivity: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between established facts or definitions and uncertain inference or assumptions?
+  objectivity_conceptuality: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between concrete details and the abstract principle or rule that organizes them?
+  conceptuality_subjectivity: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    In one or two plain-English sentences, where is the boundary between the governing concept and the heuristic shortcuts or distractors that could mislead a solver?
+perspectives:
+  O: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From an objective perspective, list the key facts, quantities, constraints, and definitions that must hold (2-4 sentences). If the evidence already settles the answer, say what it is.
+  S: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a solver's subjective perspective, note likely traps, tempting distractors, and where intuition may conflict with the correct reasoning (2-4 sentences). If the evidence already settles the answer, say what it is.
+  B: |-
+    Given this multiple-choice exam problem:
+    {input}
+
+    Region context:
+    {context}
+
+    From a conceptual perspective, name the governing principle, rule, or mechanism and how it structures the solution (2-4 sentences). If the evidence already settles the answer, say what it is.
+summary: |-
+  Original problem:
+  {input}
+
+  Outermost corner perspectives from a recursive reflexion analysis:
+
+  Objectivity (O):
+  {corner_o}
+
+  Subjectivity (S):
+  {corner_s}
+
+  Conceptuality (B):
+  {corner_b}
+
+  Solve this problem. Work through it: apply the governing principle, carry out any arithmetic or conversion the problem requires, and check the result. Then end with one sentence beginning "Answer:" that states the answer in the question's own terms, for example a number, a value, or a list. You have not been shown the option list, so do not give an option index.
+qa: |-
+  You are answering a multiple-choice exam question (MMLU-Pro), in one of 14 subjects.
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one option index; indices start at 0): {label_space}
+
+  Rules:
+  - Reply with ONLY the index of the correct option, one of the allowed answers.
+  - Prefer the form: \\boxed{{INDEX}}
+  - No explanation, no analysis, no extra words.
+judge: |-
+  You are evaluating an MMLU-Pro multiple-choice answer.
+
+  Gold answer: {gold}
+  Model answer: {prediction}
+  Allowed answers: {label_space}
+
+  Decide whether the model answer matches the gold index (ignore surrounding text if the index is clear).
+
+  Reply with JSON only:
+  {{"correct": true or false, "normalized_answer": "a single index from the allowed answers, or UNKNOWN"}}
+# Chain-of-thought baseline: the same question as `qa`, with the reasoning
+# written out before the index. This is the prompt the published 65.8% direct
+# step-by-step number was produced with.
+qa_cot: |-
+  You are answering a multiple-choice exam question (MMLU-Pro), in one of 14 subjects.
+
+  Reasoning context (may be the raw problem or an integrated analysis):
+  {context}
+
+  Question / task: Choose the correct option for the problem above.
+  {question}
+
+  Allowed answers (choose exactly one option index; indices start at 0): {label_space}
+
+  Think through the problem step by step, checking your work. Then give the final answer.
+
+  Rules:
+  - End your reply with the index of the correct option in the form \\boxed{{INDEX}}.
+  - Box exactly one allowed index, and put it last.
