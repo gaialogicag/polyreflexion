@@ -26,10 +26,10 @@ import json
 import statistics
 from pathlib import Path
 
+from perspective_divergence import content_tokens
+
 from polyrx.benchmark.runner import BenchmarkConfig, load_dataset_items
 from polyrx.cli.compose import load_config
-
-from perspective_divergence import content_tokens
 
 
 def source_texts(dataset: str, stories: int) -> dict[str, str]:
@@ -128,20 +128,24 @@ def main() -> None:
         summarise("grounded d_item", d_item),
     ]
 
-    print(f"\n{args.dataset}: share of each output's words that come from the source: "
-          f"{statistics.mean(coverage):.1%}")
+    print(
+        f"\n{args.dataset}: share of each output's words that come from the source: "
+        f"{statistics.mean(coverage):.1%}"
+    )
     print(f"{'quantity':<26} {'n':>6} {'mean':>7} {'median':>7} {'sd':>6}")
     for r in rows:
         print(
-            f"{r['name']:<26} {r['n']:>6} {r['mean']:>7.3f} "
-            f"{r['median']:>7.3f} {r['stdev']:>6.3f}"
+            f"{r['name']:<26} {r['n']:>6} {r['mean']:>7.3f} {r['median']:>7.3f} {r['stdev']:>6.3f}"
         )
 
     out = args.source.replace(".json", "_grounded.json")
     Path(out).write_text(
         json.dumps(
-            {"dataset": args.dataset, "input_word_share": statistics.mean(coverage),
-             "summary": rows},
+            {
+                "dataset": args.dataset,
+                "input_word_share": statistics.mean(coverage),
+                "summary": rows,
+            },
             indent=2,
         ),
         encoding="utf-8",

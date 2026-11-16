@@ -107,8 +107,7 @@ def main() -> None:
     print(f"{'quantity':<42} {'n':>6} {'mean':>7} {'median':>7} {'sd':>6}")
     for r in rows:
         print(
-            f"{r['name']:<42} {r['n']:>6} {r['mean']:>7.3f} "
-            f"{r['median']:>7.3f} {r['stdev']:>6.3f}"
+            f"{r['name']:<42} {r['n']:>6} {r['mean']:>7.3f} {r['median']:>7.3f} {r['stdev']:>6.3f}"
         )
 
     out = args.out or args.source.replace(".json", "_embed.json")

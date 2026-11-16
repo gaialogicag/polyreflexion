@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import asdict
 from pathlib import Path
 
 from polyrx.benchmark.runner import BenchmarkConfig, load_dataset_items
@@ -187,7 +186,9 @@ def main() -> None:
                 "counterfactual_positives": len(counterfactual_eval.positives()),
                 "counterfactual_global_value": None,
                 "has_next_cycle": has_next,
-                "canonical_next_global_value": cycles[i + 1].global_value.value if has_next else None,
+                "canonical_next_global_value": cycles[i + 1].global_value.value
+                if has_next
+                else None,
                 "canonical_next_positives": (
                     len(cycles[i + 1].evaluation.positives()) if has_next else None
                 ),
@@ -201,9 +202,15 @@ def main() -> None:
             )
 
     non_terminal = [r for r in rows if not r["is_terminal"]]
-    wins = sum(1 for r in non_terminal if r["counterfactual_positives"] > r["canonical_next_positives"])
-    ties = sum(1 for r in non_terminal if r["counterfactual_positives"] == r["canonical_next_positives"])
-    losses = sum(1 for r in non_terminal if r["counterfactual_positives"] < r["canonical_next_positives"])
+    wins = sum(
+        1 for r in non_terminal if r["counterfactual_positives"] > r["canonical_next_positives"]
+    )
+    ties = sum(
+        1 for r in non_terminal if r["counterfactual_positives"] == r["canonical_next_positives"]
+    )
+    losses = sum(
+        1 for r in non_terminal if r["counterfactual_positives"] < r["canonical_next_positives"]
+    )
 
     print()
     print(f"Refine cycles tested: {len(rows)} ({len(rows) - len(non_terminal)} terminal, excluded)")
@@ -216,7 +223,12 @@ def main() -> None:
         "stories": len(stories),
         "max_cycles": args.max_cycles,
         "engine_depth": args.engine_depth,
-        "summary": {"wins": wins, "ties": ties, "losses": losses, "terminal_excluded": len(rows) - len(non_terminal)},
+        "summary": {
+            "wins": wins,
+            "ties": ties,
+            "losses": losses,
+            "terminal_excluded": len(rows) - len(non_terminal),
+        },
         "rows": rows,
     }
     Path(args.out).write_text(json.dumps(out, indent=2), encoding="utf-8")

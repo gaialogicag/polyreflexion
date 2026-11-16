@@ -33,12 +33,66 @@ from polyrx.engine import Node, Perspective, PromptRegistry, ReflexionEngine
 from polyrx.models.registry import get_client, set_active_backends
 
 STOPWORDS = {
-    "a", "an", "and", "are", "as", "at", "be", "been", "but", "by", "for",
-    "from", "had", "has", "have", "he", "her", "his", "in", "is", "it", "its",
-    "of", "on", "or", "she", "that", "the", "their", "them", "then", "there",
-    "these", "they", "this", "to", "was", "were", "what", "when", "which",
-    "who", "will", "with", "would", "you", "your", "not", "no", "do", "does",
-    "did", "can", "could", "should", "if", "about", "into", "than", "so",
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "been",
+    "but",
+    "by",
+    "for",
+    "from",
+    "had",
+    "has",
+    "have",
+    "he",
+    "her",
+    "his",
+    "in",
+    "is",
+    "it",
+    "its",
+    "of",
+    "on",
+    "or",
+    "she",
+    "that",
+    "the",
+    "their",
+    "them",
+    "then",
+    "there",
+    "these",
+    "they",
+    "this",
+    "to",
+    "was",
+    "were",
+    "what",
+    "when",
+    "which",
+    "who",
+    "will",
+    "with",
+    "would",
+    "you",
+    "your",
+    "not",
+    "no",
+    "do",
+    "does",
+    "did",
+    "can",
+    "could",
+    "should",
+    "if",
+    "about",
+    "into",
+    "than",
+    "so",
 }
 
 
@@ -161,8 +215,7 @@ def main() -> None:
     print(f"{'quantity':<42} {'n':>6} {'mean':>7} {'median':>7} {'sd':>6}")
     for r in rows:
         print(
-            f"{r['name']:<42} {r['n']:>6} {r['mean']:>7.3f} "
-            f"{r['median']:>7.3f} {r['stdev']:>6.3f}"
+            f"{r['name']:<42} {r['n']:>6} {r['mean']:>7.3f} {r['median']:>7.3f} {r['stdev']:>6.3f}"
         )
 
     out = {

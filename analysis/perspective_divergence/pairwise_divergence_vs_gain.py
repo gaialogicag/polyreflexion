@@ -10,17 +10,16 @@ reports each pair on its own, no new API calls.
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
 import math
 import statistics
 from pathlib import Path
 
+from divergence_vs_gain import load_gain
+from perspective_divergence import content_tokens, divergence
+
 from polyrx.benchmark.runner import BenchmarkConfig, load_dataset_items
 from polyrx.cli.compose import load_config
-
-from perspective_divergence import content_tokens, divergence
-from divergence_vs_gain import load_gain
 
 PAIRS = [("O", "S"), ("O", "B"), ("S", "B")]
 
@@ -63,9 +62,14 @@ def main() -> None:
 
     cfg = load_config([f"experiment={args.dataset}", "backends=openai_nano"])
     bench = BenchmarkConfig(
-        dataset=cfg.dataset, num_items=10**6, seed=cfg.experiment.seed,
-        conditions=("answerer_direct",), prompts=cfg.prompts, paths=cfg.paths,
-        report=cfg.report, postprocess=cfg.postprocess,
+        dataset=cfg.dataset,
+        num_items=10**6,
+        seed=cfg.experiment.seed,
+        conditions=("answerer_direct",),
+        prompts=cfg.prompts,
+        paths=cfg.paths,
+        report=cfg.report,
+        postprocess=cfg.postprocess,
     )
     items, _ = load_dataset_items(bench)
     by_id = {i.item_id: i for i in items}
@@ -82,16 +86,21 @@ def main() -> None:
         obs = [gains[m] for m in members if m in gains]
         if not obs:
             continue
-        row = {"sid": sid, "n_questions": len(obs),
-               "direct_rate": sum(d for d, _ in obs) / len(obs),
-               "meta_rate": sum(m for _, m in obs) / len(obs)}
+        row = {
+            "sid": sid,
+            "n_questions": len(obs),
+            "direct_rate": sum(d for d, _ in obs) / len(obs),
+            "meta_rate": sum(m for _, m in obs) / len(obs),
+        }
         for a, b in PAIRS:
             row[f"grounded_{a}{b}"] = grounded_pair_divergence(leaves, a, b, item.context)
             row[f"raw_{a}{b}"] = raw_pair_divergence(leaves, a, b)
         rows.append(row)
 
-    print(f"\n{args.dataset}: {len(rows)} independent units "
-          f"({sum(r['n_questions'] for r in rows)} graded questions)\n")
+    print(
+        f"\n{args.dataset}: {len(rows)} independent units "
+        f"({sum(r['n_questions'] for r in rows)} graded questions)\n"
+    )
 
     ys = (
         [r["meta_rate"] - r["direct_rate"] for r in rows]
@@ -116,12 +125,13 @@ def main() -> None:
     print("--- spread across the 3 pairs (stdev of O-S, O-B, S-B per story) ---")
     for metric_prefix in ("grounded", "raw"):
         spreads = [
-            statistics.pstdev([r[f"{metric_prefix}_{a}{b}"] for a, b in PAIRS])
-            for r in rows
+            statistics.pstdev([r[f"{metric_prefix}_{a}{b}"] for a, b in PAIRS]) for r in rows
         ]
         r = pearson(spreads, ys)
-        print(f"{metric_prefix:<10} mean spread {statistics.mean(spreads):.3f}  "
-              f"{kind} r(spread, gain) = {r:+.3f}")
+        print(
+            f"{metric_prefix:<10} mean spread {statistics.mean(spreads):.3f}  "
+            f"{kind} r(spread, gain) = {r:+.3f}"
+        )
 
 
 if __name__ == "__main__":

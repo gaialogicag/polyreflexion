@@ -33,10 +33,10 @@ import math
 import statistics
 from pathlib import Path
 
+from perspective_divergence import content_tokens, divergence
+
 from polyrx.benchmark.runner import BenchmarkConfig, load_dataset_items
 from polyrx.cli.compose import load_config
-
-from perspective_divergence import content_tokens, divergence
 
 
 def load_gain(paths: list[str], direct_from: str | None) -> dict[str, tuple[bool, bool]]:
@@ -107,10 +107,14 @@ def main() -> None:
     ap.add_argument("--divergence", required=True)
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--gain", nargs="+", required=True)
-    ap.add_argument("--direct-from", default=None,
-                    help="take direct results from this run instead (post-fix baseline)")
-    ap.add_argument("--by-context", action="store_true",
-                    help="aggregate items to their shared context (Hi-ToM)")
+    ap.add_argument(
+        "--direct-from",
+        default=None,
+        help="take direct results from this run instead (post-fix baseline)",
+    )
+    ap.add_argument(
+        "--by-context", action="store_true", help="aggregate items to their shared context (Hi-ToM)"
+    )
     args = ap.parse_args()
 
     div_data = json.loads(Path(args.divergence).read_text(encoding="utf-8"))
@@ -119,9 +123,14 @@ def main() -> None:
 
     cfg = load_config([f"experiment={args.dataset}", "backends=openai_nano"])
     bench = BenchmarkConfig(
-        dataset=cfg.dataset, num_items=10**6, seed=cfg.experiment.seed,
-        conditions=("answerer_direct",), prompts=cfg.prompts, paths=cfg.paths,
-        report=cfg.report, postprocess=cfg.postprocess,
+        dataset=cfg.dataset,
+        num_items=10**6,
+        seed=cfg.experiment.seed,
+        conditions=("answerer_direct",),
+        prompts=cfg.prompts,
+        paths=cfg.paths,
+        report=cfg.report,
+        postprocess=cfg.postprocess,
     )
     items, _ = load_dataset_items(bench)
     by_id = {i.item_id: i for i in items}
@@ -149,8 +158,10 @@ def main() -> None:
             }
         )
 
-    print(f"\n{args.dataset}: {len(rows)} independent units "
-          f"({sum(r['n_questions'] for r in rows)} graded questions)")
+    print(
+        f"\n{args.dataset}: {len(rows)} independent units "
+        f"({sum(r['n_questions'] for r in rows)} graded questions)"
+    )
 
     for metric in ("d_raw", "d_grounded"):
         print(f"\n--- {metric} ---")
@@ -174,8 +185,15 @@ def main() -> None:
         cells = {"both right": [], "both wrong": [], "meta only": [], "direct only": []}
         for r_ in rows:
             d, m = r_["direct_rate"] >= 0.5, r_["meta_rate"] >= 0.5
-            key = ("both right" if d and m else "both wrong" if not d and not m
-                   else "meta only" if m else "direct only")
+            key = (
+                "both right"
+                if d and m
+                else "both wrong"
+                if not d and not m
+                else "meta only"
+                if m
+                else "direct only"
+            )
             cells[key].append(r_[metric])
         for k, v in cells.items():
             if v:
@@ -190,9 +208,13 @@ def main() -> None:
                 fit = logistic_fit(xs, ys)
                 label = "direct right" if d else "direct wrong"
                 if fit:
-                    print(f"  logistic P(meta right | {label}): slope {fit[1]:+.2f} per unit divergence, n={len(xs)}")
+                    print(
+                        f"  logistic P(meta right | {label}): slope {fit[1]:+.2f} per unit divergence, n={len(xs)}"
+                    )
                 else:
-                    print(f"  logistic P(meta right | {label}): degenerate (all same outcome), n={len(xs)}")
+                    print(
+                        f"  logistic P(meta right | {label}): degenerate (all same outcome), n={len(xs)}"
+                    )
 
 
 if __name__ == "__main__":

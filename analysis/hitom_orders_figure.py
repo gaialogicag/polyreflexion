@@ -51,12 +51,12 @@ def accuracy_by_order(runs):
 plt.rcParams.update({"font.family": "serif", "font.size": 7, "axes.linewidth": 0.6})
 fig, axes = plt.subplots(2, 1, figsize=(3.45, 4.35), dpi=300, sharex=True, sharey=True)
 width = 0.3
-for ax, (model, runs) in zip(axes, RUNS.items()):
+for ax, (model, runs) in zip(axes, RUNS.items(), strict=True):
     acc, n = accuracy_by_order(runs)
     for k, (label, values) in enumerate(acc.items()):
         xs = [x + (k - 1) * width for x in range(5)]
         ax.bar(xs, values, width=width * 0.88, color=COLORS[k], label=label, linewidth=0)
-        for x, v in zip(xs, values):
+        for x, v in zip(xs, values, strict=True):
             ax.text(x, v + 0.8, f"{v:.1f}", ha="center", va="bottom", fontsize=4.4, color="#52514e")
     ax.set_title(model, fontsize=7.5, loc="left")
     ax.set_xticks(range(5))
@@ -71,7 +71,16 @@ for ax, (model, runs) in zip(axes, RUNS.items()):
     print(model, {k: [round(v, 1) for v in vs] for k, vs in acc.items()}, "questions:", n)
 axes[-1].set_xlabel("belief order")
 handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, frameon=False, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.04), handlelength=1.0, columnspacing=1.6)
+fig.legend(
+    handles,
+    labels,
+    frameon=False,
+    ncol=3,
+    loc="upper center",
+    bbox_to_anchor=(0.5, 1.04),
+    handlelength=1.0,
+    columnspacing=1.6,
+)
 fig.tight_layout()
 fig.savefig(sys.argv[1], bbox_inches="tight")
 fig.savefig(sys.argv[1].replace(".pdf", ".png"), bbox_inches="tight", dpi=200)

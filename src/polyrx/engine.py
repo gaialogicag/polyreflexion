@@ -67,7 +67,7 @@ class Boundaries:
 #: the child's statement subsume the parent's instead of replacing it.
 _NARROW_SUFFIX = (
     "\n\nThe wider boundary previously drawn on this same edge was:\n"
-    "\"{prior}\"\n\n"
+    '"{prior}"\n\n'
     "You are describing that same edge inside a smaller region, so your sentence "
     "must narrow that statement rather than replace it. Keep every distinction it "
     "draws, including every person, object, place and event it names, and add only "
