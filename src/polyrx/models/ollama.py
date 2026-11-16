@@ -163,12 +163,9 @@ class OllamaClient:
         if self.config.think is not None:
             body["think"] = self.config.think
 
-        payload = json.dumps(body).encode()
-        req = urllib.request.Request(
-            f"{self.host.rstrip('/')}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
+        url = f"{self.host.rstrip('/')}/api/generate"
+        headers = {"Content-Type": "application/json"}
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
         last_error: Exception | None = None
         for attempt in range(1, self.retries + 1):
             try:
@@ -187,6 +184,23 @@ class OllamaClient:
             except TimeoutError as exc:
                 last_error = exc
                 print(f"Ollama timeout (attempt {attempt}/{self.retries}), retrying...")
+                time.sleep(self._backoff(attempt))
+            except urllib.error.HTTPError as exc:
+                # The server answered, so it is reachable. The one error worth
+                # handling is a repetition abort: at temperature 0 the same
+                # prompt loops the same way every time, so a plain retry cannot
+                # help. Retry with some randomness and a repeat penalty.
+                detail = exc.read().decode("utf-8", errors="replace")[:300]
+                last_error = exc
+                if attempt == self.retries:
+                    raise RuntimeError(f"Ollama returned HTTP {exc.code}: {detail}") from exc
+                print(f"Ollama HTTP {exc.code} (attempt {attempt}/{self.retries}): {detail}")
+                if "repeat limit" in detail:
+                    body["options"]["temperature"] = max(self.temperature, 0.3)
+                    body["options"]["repeat_penalty"] = 1.15
+                    req = urllib.request.Request(
+                        url, data=json.dumps(body).encode(), headers=headers
+                    )
                 time.sleep(self._backoff(attempt))
             except urllib.error.URLError as exc:
                 last_error = exc
